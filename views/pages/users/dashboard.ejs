@@ -1,0 +1,268 @@
+<script src="/javascripts/controllers/dashboardController.js"></script>
+<div class="container-fluid" ng-controller="DashboardController">
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="page-pretitle text-muted">Overview</div>
+                <h1 class="page-title mb-1">Dashboard</h1>
+                <p class="text-muted mb-0">Tasks summary and developer timer reports</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cards">
+        <div class="col-6 col-sm-6 col-lg-2 mb-3 mb-lg-0">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-primary text-white avatar" style="background-color: var(--tblr-primary) !important;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="icon icon-tabler icons-tabler-outline icon-tabler-subtask">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M6 9l6 0" />
+                                    <path d="M4 5l4 0" />
+                                    <path d="M6 5v11a1 1 0 0 0 1 1h5" />
+                                    <path
+                                        d="M12 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" />
+                                    <path
+                                        d="M12 15m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" />
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">{{dashboard!=null ? dashboard.totalTasks : 0 }}</div>
+                            <div class="text-secondary"><b>Tasks</b></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-6 col-lg-2 mb-3 mb-lg-0" ng-show="dashboard!=null && dashboard.users > 0">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-primary text-white avatar" style="background-color: var(--tblr-primary) !important;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="icon icon-tabler icons-tabler-outline icon-tabler-users-group">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                                    <path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" />
+                                    <path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                                    <path d="M17 10h2a2 2 0 0 1 2 2v1" />
+                                    <path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                                    <path d="M3 13v-1a2 2 0 0 1 2 -2h2" />
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">{{dashboard!=null ? dashboard.users : 0 }}</div>
+                            <div class="text-secondary"><b>Users</b></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8" ng-show="developers.length > 0">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md">
+                            <h3 class="h5 d-md-none mb-3"> {{ reportDate == null || reportDate == "" ? "Today's": "" }} Developers Timer Reports
+                            </h3>
+                            <h3 class="d-none d-md-block mb-3"> {{ reportDate == null || reportDate == "" ? "Today's": "" }} Developers Timer Reports
+                            </h3>
+                        </div>
+                        <div class="col-md-auto d-none d-md-block">
+                            <button class="btn btn-sm" type="button" ng-click="onRefresh()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="icon icon-tabler icons-tabler-outline icon-tabler-refresh">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+                                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                                </svg> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4 mb-2 mb-md-0">
+                            <label class="form-label small d-md-none mb-1">Work Type</label>
+                            <select class="form-select d-md-none" ng-model="workType">
+                                <option value="onsite">On Site</option>
+                                <option value="remote">Remote</option>
+                            </select>
+                            <select class="form-select d-none d-md-block" ng-model="workType">
+                                <option value="onsite">On Site</option>
+                                <option value="remote">Remote</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3 mb-2 mb-md-0">
+                            <label class="form-label small d-md-none mb-1">Date</label>
+                            <input type="date" class="form-control d-md-none" ng-model="reportDate">
+                            <input type="date" class="form-control d-none d-md-block" ng-model="reportDate">
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <div class="d-flex flex-column flex-sm-row gap-2 d-md-none">
+                                <button class="btn btn-primary flex-fill" type="button" ng-click="getDeveloperReport()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        class="icon icon-tabler icons-tabler-outline icon-tabler-search">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                                        <path d="M21 21l-6 -6" />
+                                    </svg> Search
+                                </button>
+                                <button class="btn btn-secondary flex-fill" type="button" ng-click="onRefresh()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="icon icon-tabler icons-tabler-outline icon-tabler-refresh">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+                                        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                                    </svg> Refresh
+                                </button>
+                            </div>
+                            <div class="d-none d-md-block">
+                                <button class="btn btn-primary" type="button" ng-click="getDeveloperReport()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        class="icon icon-tabler icons-tabler-outline icon-tabler-search">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                                        <path d="M21 21l-6 -6" />
+                                    </svg> Search
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Desktop Table View -->
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Developer Name</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Total Time</th>
+                                    <th>Tasks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-show="isDeveloperTableLoading">
+                                    <td colspan="5" class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                                    </td>
+                                </tr>
+                                <tr ng-repeat="dev in developers">
+                                    <td>
+                                        <div ng-if="isAdmin && dev.mobile" 
+                                            ng-click="initiateCall(dev.mobile)" 
+                                            title="Click to call {{dev.name}}"
+                                            class="{{!dev.isActive ? 'text-danger': ''}}"
+                                            style="cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-phone">
+                                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                                <path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2"/>
+                                            </svg>
+                                            <span class="text-primary">{{dev.name}}</span>
+                                        </div>
+                                        <div ng-if="!isAdmin || !dev.mobile" 
+                                            title="{{!dev.isActive? 'Acccount is deactive' : ''}}"
+                                            class="{{!dev.isActive ? 'text-danger': ''}}">{{dev.name}}</div>
+                                    </td>
+                                    <td>{{dev.startTime}}</td>
+                                    <td>{{dev.endTime}}</td>
+                                    <td>{{dev.totalTime}}</td>
+                                    <td>
+                                        <a ng-click="loadTask(dev.tasks)" style="cursor: pointer;"
+                                            class="text-primary">{{dev.tasks.length}} Tasks</a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Mobile Card View -->
+                    <div class="d-md-none">
+                        <div ng-show="isDeveloperTableLoading" class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                        </div>
+                        <div ng-repeat="dev in developers" class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="flex-grow-1">
+                                        <div ng-if="isAdmin && dev.mobile" 
+                                            ng-click="initiateCall(dev.mobile)" 
+                                            title="Click to call {{dev.name}}"
+                                            class="{{!dev.isActive ? 'text-danger': ''}} mb-1"
+                                            style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px; -webkit-tap-highlight-color: rgba(0,0,0,0.1);">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-phone">
+                                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                                <path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2"/>
+                                            </svg>
+                                            <span class="text-primary fw-bold">{{dev.name}}</span>
+                                        </div>
+                                        <div ng-if="!isAdmin || !dev.mobile" 
+                                            title="{{!dev.isActive? 'Acccount is deactive' : ''}}"
+                                            class="{{!dev.isActive ? 'text-danger': ''}} fw-bold mb-1">{{dev.name}}</div>
+                                    </div>
+                                </div>
+                                <div class="row g-2 small">
+                                    <div class="col-6">
+                                        <div class="text-muted">Start Time</div>
+                                        <div class="fw-medium">{{dev.startTime}}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-muted">End Time</div>
+                                        <div class="fw-medium">{{dev.endTime}}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-muted">Total Time</div>
+                                        <div class="fw-medium">{{dev.totalTime}}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-muted">Tasks</div>
+                                        <a ng-click="loadTask(dev.tasks)" style="cursor: pointer;"
+                                            class="text-primary fw-medium">{{dev.tasks.length}} Tasks</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div class="modal fade" id="taskListModal" tabindex="-1" aria-labelledby="taskListModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskListModalLabel">Tasks Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div ng-repeat="task in tasksList" class="border rounded p-3 mb-3 bg-light">
+                        <div class="mb-2 fw-medium">{{task.task}}</div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <span class="badge bg-{{ task.priority === 'high' ? 'danger' : (task.priority === 'medium' ? 'warning text-dark' : 'secondary') }} {{ task.priority !== 'medium' ? 'text-white' : '' }}">Priority: {{task.priority | uppercase}}</span>
+                            <span class="badge bg-{{ task.status === 'completed' ? 'success' : (task.status === 'in-progress' ? 'primary' : (task.status === 'removed' ? 'dark' : 'secondary')) }} text-white">Status: {{task.status | uppercase}}</span>
+                            <span class="badge bg-info text-white">Est: {{task.estimatedTime.hour || 0}}h {{task.estimatedTime.minutes || 0}}m</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

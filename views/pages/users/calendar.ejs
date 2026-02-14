@@ -1,0 +1,399 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<script src="/javascripts/controllers/calendarController.js"></script>
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<style>
+    /* FullCalendar Customization */
+    .fc-header-toolbar {
+        margin-bottom: 1.5rem !important;
+        padding: 0.5rem;
+    }
+
+    .fc .fc-button-group>.fc-button {
+        background-color: #fff;
+        border: 1px solid #e2e8f0;
+        color: #64748b;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fc .fc-button-group>.fc-button:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+        z-index: 2;
+    }
+
+    .fc .fc-button-group>.fc-button:focus,
+    .fc .fc-button-group>.fc-button:active,
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background-color: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    /* Icons in buttons */
+    .fc-icon {
+        font-size: 1.2em;
+        vertical-align: middle;
+    }
+
+    .fc-theme-standard td,
+    .fc-theme-standard th {
+        border-color: #e2e8f0;
+    }
+
+    .fc-daygrid-day {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .fc-daygrid-day:hover {
+        background-color: #f0f9ff;
+        /* Light blue hover */
+    }
+
+    /* Fix Dropdown Visibility */
+    .modal-body {
+        overflow-y: visible !important;
+        /* Allow dropdowns to overflow */
+    }
+
+    .form-select-lg {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+    }
+
+    /* Toolbar Title */
+    .fc-toolbar-title {
+        font-size: 1.5rem !important;
+        font-weight: 700;
+        color: #1e293b;
+    }
+</style>
+<div class="container-fluid" ng-controller="CalendarController">
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="page-pretitle text-muted">Leave Management</div>
+                <h1 class="page-title mb-1">Leave Calendar</h1>
+                <p class="text-muted mb-0">View and manage leave plans for all team members</p>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" ng-click="showMyLeaves()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    My Leaves
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Card -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm" style="border: none;">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            Team Leave Calendar
+                        </h3>
+                        <div class="text-muted small" ng-if="!calendarLoading">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Click any date to request leave
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body position-relative" style="min-height: 600px;">
+                    <!-- Loading Overlay -->
+                    <div ng-if="calendarLoading" class="position-absolute top-50 start-50 translate-middle text-center">
+                        <div class="spinner-border text-primary mb-2" role="status"></div>
+                        <div class="text-muted">Loading calendar...</div>
+                    </div>
+                    <div id="calendar" ng-class="{'opacity-50': calendarLoading}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend Card -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card shadow-sm" style="border: none;">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="text-muted fw-bold me-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            Leave Types:
+                        </span>
+                        <span class="badge fs-6 px-3 py-2 border" style="background-color: #0dcaf0; color: #000;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <circle cx="12" cy="12" r="10"></circle>
+                            </svg>
+                            Casual Leave
+                        </span>
+                        <span class="badge fs-6 px-3 py-2 border" style="background-color: #dc3545; color: #fff;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <path
+                                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
+                                </path>
+                            </svg>
+                            Sick Leave
+                        </span>
+                        <span class="badge fs-6 px-3 py-2 border" style="background-color: #198754; color: #fff;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            Vacation
+                        </span>
+                        <span class="badge fs-6 px-3 py-2 border" style="background-color: #ffc107; color: #000;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            Personal
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Request Modal -->
+    <div class="modal modal-blur fade" id="leaveModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title d-flex align-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" class="me-2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        Request Leave
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="leaveForm">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label required d-flex align-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                    Leave Duration
+                                </label>
+                                <select class="form-select" ng-model="leaveForm.duration"
+                                    ng-change="onDurationChange()">
+                                    <option value="single">Single Day</option>
+                                    <option value="multiple">Multiple Days</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required d-flex align-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    <span ng-if="leaveForm.duration === 'single'">Date</span>
+                                    <span ng-if="leaveForm.duration === 'multiple'">From Date</span>
+                                </label>
+                                <input type="date" class="form-control" ng-model="leaveForm.fromDate"
+                                    ng-change="onFromDateChange()" required>
+                            </div>
+                            <div class="col-md-6 mb-3" ng-show="leaveForm.duration === 'multiple'">
+                                <label class="form-label required d-flex align-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    To Date
+                                </label>
+                                <input type="date" class="form-control" ng-model="leaveForm.toDate"
+                                    ng-required="leaveForm.duration === 'multiple'">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label required d-flex align-items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                                    <line x1="4" y1="22" x2="4" y2="15"></line>
+                                </svg>
+                                Leave Type
+                            </label>
+                            <select class="form-select" ng-model="leaveForm.leaveType" required>
+                                <option value="casual">Casual Leave</option>
+                                <option value="sick">Sick Leave</option>
+                                <option value="vacation">Vacation</option>
+                                <option value="personal">Personal Leave</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label required fw-bold text-uppercase small text-muted mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" class="me-1 text-primary">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                                Reason for Leave
+                            </label>
+                            <textarea class="form-control border-2" rows="4" ng-model="leaveForm.reason"
+                                placeholder="Please describe why you need this leave..." required
+                                style="resize: none;"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light p-3 border-top-0">
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary px-5 fw-bold shadow-sm" ng-click="submitLeave()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" class="me-2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Submit Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Leave Details Modal -->
+    <div class="modal modal-blur fade" id="viewLeaveModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-light p-3">
+                    <h5 class="modal-title d-flex align-items-center fw-bold text-dark">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" class="me-2 text-primary">
+                            <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+                            <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6">
+                            </path>
+                        </svg>
+                        Leaves for <span id="viewLeaveDate" class="ms-2 text-primary"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="list-group list-group-flush" id="dayLeavesList">
+                        <!-- Leaves will be populated here -->
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-2 border-top-0">
+                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Leaves Modal -->
+    <div class="modal modal-blur fade" id="myLeavesModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">My Leave History</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">From</th>
+                                    <th style="width: 100px;">To</th>
+                                    <th>Type</th>
+                                    <th>Reason</th>
+                                    <th style="width: 80px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-if="myLeaves.length === 0">
+                                    <td colspan="5" class="text-center text-muted">No leaves found</td>
+                                </tr>
+                                <tr ng-repeat="leave in myLeaves">
+                                    <td>{{leave.fromDate | date:'dd/MM/yy'}}</td>
+                                    <td>{{leave.toDate | date:'dd/MM/yy'}}</td>
+                                    <td>
+                                        <span class="badge"
+                                            ng-style="{'background-color': getLeaveColor(leave.leaveType)}">
+                                            {{leave.leaveType | uppercase}}
+                                        </span>
+                                    </td>
+                                    <td>{{leave.reason}}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" ng-click="deleteLeave(leave._id)"
+                                            title="Delete">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path
+                                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                                </path>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

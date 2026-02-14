@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Flow</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/css/tabler.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <script src="/javascripts/constants.js"></script>
+  <script src="/javascripts/main.js"></script>
+  <script src="/javascripts/services/sweetAlertService.js"></script>
+  <script src="/javascripts/services/httpServices.js"></script>
+  <script src="/javascripts/controllers/authController.js"></script>
+  <style>
+    body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; background: #f1f5f9; }
+    .login-page .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+    .login-page .form-control {
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    .login-page .form-control:focus {
+      border-color: var(--tblr-primary);
+      box-shadow: 0 0 0 2px rgba(var(--tblr-primary-rgb), 0.2);
+    }
+    .login-page .btn-primary { border-radius: 6px; font-weight: 500; }
+    .footer-links a { color: #64748b; text-decoration: none; font-size: 13px; }
+    .footer-links a:hover { color: var(--tblr-primary); }
+    .login-brand { display: inline-flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+    .login-brand-icon { width: 56px; height: 56px; border-radius: 14px; background: var(--tblr-primary); color: #fff; display: flex; align-items: center; justify-content: center; }
+    .login-brand-name { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: #0f172a; }
+    .login-brand-tagline { font-size: 0.875rem; color: #64748b; font-weight: 400; margin-top: 0.25rem; }
+  </style>
+</head>
+
+<body ng-app="timerApp" ng-cloak class="login-page">
+
+  <div class="page page-center" ng-controller="AuthController">
+    <div class="container container-tight py-5">
+      <div class="text-center mb-5">
+        <a href="/" class="login-brand text-decoration-none">
+          <span class="login-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M7 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+              <path d="M7 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+              <path d="M17 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+              <path d="M7 8v8" />
+              <path d="M9 18h6a2 2 0 0 0 2 -2v-5" />
+              <path d="M14 13v7" />
+            </svg>
+          </span>
+          <span class="login-brand-name">Focus Flow</span>
+          <span class="login-brand-tagline">Sign in to your account</span>
+        </a>
+      </div>
+      <div class="card card-md">
+        <div class="card-body p-4 p-md-5">
+          <h2 class="h4 text-center mb-1 fw-semibold">Welcome back</h2>
+          <p class="text-muted text-center small mb-4">Enter your credentials to continue</p>
+
+          <form ng-submit="onSubmit()" autocomplete="off">
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" ng-model="form.email" placeholder="you@example.com"
+                autocomplete="off" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <div class="input-group input-group-flat">
+                <input type="{{ showPassword ? 'text' : 'password' }}" class="form-control" autocomplete="new-password"
+                  ng-model="form.password" placeholder="••••••••" required>
+                <span class="input-group-text">
+                  <span class="link-secondary" ng-click="showPassword=!showPassword" style="cursor: pointer;">{{ showPassword ? 'Hide' : 'Show' }}</span>
+                </span>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="form-check">
+                <input type="checkbox" class="form-check-input">
+                <span class="form-check-label small">Remember me</span>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2" ng-disabled="isLoading">
+              {{ isLoading ? 'Signing in…' : 'Sign in' }}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <p class="text-center text-muted small mt-4 mb-0">
+        <a href="https://www.itfuturz.com" target="_blank" rel="noopener" class="footer-links">Powered by ITFuturz</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
+</body>
+
+</html>

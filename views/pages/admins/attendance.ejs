@@ -1,0 +1,253 @@
+<script src="/javascripts/controllers/attendanceController.js"></script>
+
+<div class="container-fluid" ng-controller="AttendanceController">
+    <!-- Page Header -->
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="page-pretitle text-muted text-uppercase"
+                    style="letter-spacing: 0.05em; font-size: 0.7rem; font-weight: 700;">MANAGEMENT</div>
+                <h1 class="page-title mb-1" style="font-size: 1.5rem; font-weight: 700;">Attendance</h1>
+                <p class="text-muted mb-0">Track and manage employee attendance</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card mb-3">
+        <div class="card-body p-3">
+            <div class="row align-items-end g-3">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Work Type</label>
+                    <select class="form-select" ng-model="filters.workType" ng-change="onWorkTypeChange()">
+                        <option value="onsite">Onsite</option>
+                        <option value="remote">Remote</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Employee</label>
+                    <select class="form-select" ng-model="filters.userId" ng-change="getAttendanceList()">
+                        <option value="">All Employees</option>
+                        <option value="{{user._id}}" ng-repeat="user in allUsers | filter:{workType: filters.workType}">
+                            {{user.name}}</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">Date Range</label>
+                    <div class="input-group">
+                        <input type="date" class="form-control" ng-model="filters.startDate"
+                            ng-change="getAttendanceList()">
+                        <span class="input-group-text border-0 bg-transparent text-muted">to</span>
+                        <input type="date" class="form-control" ng-model="filters.endDate"
+                            ng-change="getAttendanceList()">
+                    </div>
+                </div>
+                <div class="col"></div>
+                <div class="col-md-auto">
+                    <button class="btn btn-primary px-3" ng-click="openManualModal()">
+                        <i class="fa-solid fa-plus me-2"></i> Mark Manual
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table Card -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-vcenter table-mobile-md card-table">
+                <thead>
+                    <tr>
+                        <th class="text-muted small fw-bold py-3">DATE</th>
+                        <th class="text-muted small fw-bold py-3">EMPLOYEE</th>
+                        <th class="text-muted small fw-bold py-3">STATUS</th>
+                        <th class="text-muted small fw-bold py-3">IN TIME</th>
+                        <th class="text-muted small fw-bold py-3">OUT TIME</th>
+                        <th class="text-muted small fw-bold py-3">TYPE</th>
+                        <th class="text-muted small fw-bold py-3">TASKS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="record in attendanceList">
+                        <td class="py-3">
+                            <div class="text-dark">{{ record.date }}</div>
+                        </td>
+                        <td class="py-3">
+                            <div class="d-flex align-items-center">
+                                <div>
+                                    <div class="fw-medium text-dark">{{ record.user.name }}</div>
+                                    <div class="text-muted small">{{ record.user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3">
+                            <span
+                                class="badge {{ record.status === 'PRESENT' ? 'bg-success' : (record.status === 'WEEKEND' ? 'bg-secondary' : 'bg-danger') }} px-2 py-1"
+                                style="font-size: 0.65rem; font-weight: 700; border-radius: 4px;">
+                                {{ record.status }}
+                            </span>
+                        </td>
+                        <td class="py-3 text-muted">{{ record.inTime }}</td>
+                        <td class="py-3 text-muted">
+                            <div>{{ record.outTime }}</div>
+                            <div ng-if="record.isLateEndDay" class="text-danger small fw-bold"
+                                style="font-size: 0.65rem;">
+                                Late End Day
+                            </div>
+                        </td>
+                        <td class="py-3">
+                            <div class="text-muted small fw-bold">{{ record.type }}</div>
+                        </td>
+                        <td class="py-3">
+                            <button class="btn btn-sm btn-outline-primary py-1 px-2 d-flex align-items-center gap-1"
+                                style="font-size: 0.75rem; border-color: #d1e1f5; color: #4480e0;"
+                                ng-click="viewTasks(record.tasks)">
+                                <i class="fa-regular fa-eye"></i> View ({{ record.tasks.length }})
+                            </button>
+                        </td>
+                    </tr>
+                    <tr ng-if="attendanceList.length === 0 && !isLoading">
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            No attendance records found for this selection.
+                        </td>
+                    </tr>
+                    <tr ng-if="isLoading">
+                        <td colspan="7" class="text-center py-5">
+                            <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                            <span class="ms-2 text-muted small">Loading records...</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tasks View Modal -->
+    <div class="modal fade" id="tasksModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tasks Performed</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item p-3" ng-repeat="task in currentTasks">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="badge bg-blue-lt">{{ task.status | uppercase }}</span>
+                                <span class="text-muted small">{{ task.countView }}</span>
+                            </div>
+                            <div class="text-dark">{{ task.task }}</div>
+                        </div>
+                        <div class="p-4 text-center text-muted" ng-if="currentTasks.length === 0">
+                            No tasks recorded for this day.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mark Manual Modal -->
+    <div class="modal fade" id="manualModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fa-solid fa-user-check me-2"></i> Mark Manual Attendance</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form ng-submit="submitManualEntry()">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Select Employee</label>
+                            <select class="form-select" ng-model="manualEntry.userId" required>
+                                <option value="">Choose an employee...</option>
+                                <option value="{{user._id}}"
+                                    ng-repeat="user in allUsers | filter:{workType: filters.workType}">{{user.name}}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Date</label>
+                            <input type="date" class="form-control" ng-model="manualEntry.date" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">In Time</label>
+                                <input type="time" class="form-control" ng-model="manualEntry.startTime" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Out Time (Optional)</label>
+                                <input type="time" class="form-control" ng-model="manualEntry.endTime">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light p-3">
+                        <button type="button" class="btn btn-link link-secondary me-auto"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4" ng-disabled="isSaving">
+                            <span ng-if="!isSaving">Mark Present</span>
+                            <span ng-if="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+                            <span ng-if="isSaving">Processing...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-info-lt {
+        background-color: rgba(65, 105, 225, 0.1) !important;
+        color: #4169e1 !important;
+    }
+
+    .bg-success {
+        background-color: #2fb344 !important;
+        color: white !important;
+        min-width: 80px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .bg-danger {
+        background-color: #d6336c !important;
+        color: white !important;
+        min-width: 80px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .bg-secondary {
+        background-color: #6c757d !important;
+        color: white !important;
+        min-width: 80px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .card-table thead th {
+        background: #f8fafc;
+        border-bottom: 2px solid #f1f5f9;
+    }
+
+    .table-vcenter td {
+        vertical-align: middle;
+    }
+
+    .form-select,
+    .form-control {
+        border-color: #e2e8f0;
+        font-size: 0.875rem;
+    }
+
+    .page-title {
+        color: #1e293b;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #f1f5f9;
+        color: #4480e0;
+    }
+</style>

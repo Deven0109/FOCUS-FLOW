@@ -1,0 +1,150 @@
+<script src="/javascripts/controllers/taskController.js"></script>
+<div class="container-fluid" ng-controller="TaskController">
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="page-pretitle text-muted">Work</div>
+                <h1 class="page-title mb-1">Today's Task</h1>
+                <p class="text-muted mb-0">Manage and track your daily tasks</p>
+            </div>
+        </div>
+    </div>
+    <div class="page-body">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body p-4">
+                        <div class="alert alert-warning py-2 mb-3" role="alert"
+                            ng-if="(todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime!=null)">
+                            Your today’s task timer has been stopped.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center" style="width: 4%">#</th>
+                                        <th style="min-width: 300px;">Task</th>
+                                        <th class="text-center" style="min-width: 200px;">Priority</th>
+                                        <th class="text-center" style="min-width: 200px;">Status</th>
+                                        <th style="min-width: 200px;" title="Once the estimate is saved, you will not able to edit it.">Estimated Time <i class="fa-solid fa-circle-info text-danger"></i></th>
+                                        <th style="min-width: 150px;">Tracker</th>
+                                        <th class="text-center" style="min-width: 60px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="task in tasks track by $index">
+                                        <td class="text-center">{{$index+1}}</td>
+                                        <td>
+                                            <div>
+                                                <textarea class="form-control" tabindex="1" placeholder="Enter your task..." rows="2" ng-model="task.task" ng-disabled="todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime!=null"></textarea>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <select class="form-select" id="taskPriority" tabindex="2"
+                                                ng-model="task.priority"
+                                                ng-disabled="todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime!=null"
+                                                required>
+                                                <option value="high">High</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="low">Low</option>
+                                            </select>
+                                        </td>
+                                        <td class="text-center">
+                                            <select class="form-select" id="taskStatus" tabindex="3"
+                                                ng-model="task.status"
+                                                ng-disabled="todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime!=null"
+                                                required>
+                                                <option value="not-started">Not Started</option>
+                                                <option value="in-progress">In Progress</option>
+                                                <option value="completed">Completed</option>
+                                                <option value="removed">Removed</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <div class="row">
+                                                <div class="col">
+                                                    <input type="text" ng-model="task.estimatedTime.hour" maxlength="2" ng-disabled="task._id" numbers-only class="form-control" required>
+                                                    <div style="font-size: 11px;" class="text-muted">HOUR</div>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="text" ng-model="task.estimatedTime.minutes" maxlength="2" ng-disabled="task._id" numbers-only class="form-control" required>
+                                                    <div style="font-size: 11px;" class="text-muted">MINUTES</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                             <div class="mt-2 text-center">
+                                                <div class="text-muted" style="font-size: 11px;" title="Last Tracked Time">LT time: {{formatTime(task.totalSeconds)}}</div>
+                                                <div class="badge bg-light">
+                                                    <span ng-click="toggleTimer($index)"
+                                                        style="width: 20px; height: 20px; cursor: pointer; justify-content: center;"
+                                                        class="d-flex align-items-center bg-{{ (todaysDataResult == null || (todaysDataResult!=null && todaysDataResult.endTime!=null)) ? 'secondary' : task.isTrackerStarted ? 'danger' : 'success' }} rounded">
+                                                        <i class="fa-solid fa-play text-white" ng-if="!task.isTrackerStarted" style="font-size: 10px;"></i>
+                                                        <i class="fa-solid fa-pause text-white" ng-if="task.isTrackerStarted" style="font-size: 10px;"></i>
+                                                    </span>
+                                                    {{task.countView}}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-danger btn-action" title="Delete Task"
+                                                ng-disabled="task._id" ng-click="deleteTask($index)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="icon icon-tabler icons-tabler-outline icon-tabler-trash">
+                                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                                    <path d="M4 7l16 0" />
+                                                    <path d="M10 11l0 6" />
+                                                    <path d="M14 11l0 6" />
+                                                    <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+                                                    <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7">
+                                            <button class="btn" type="button" ng-click="addTask()" tabindex="4"
+                                                ng-disabled="(todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime!=null)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="icon icon-tabler icons-tabler-outline icon-tabler-plus">
+                                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                                    <path d="M12 5l0 14" />
+                                                    <path d="M5 12l14 0" />
+                                                </svg>
+                                                Add Task
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Filters and Actions -->
+                        <div class="row mt-4 align-items-center">
+                            <div class="col">
+                                <button class="btn btn-primary me-2" type="button" ng-click="startTimer()"
+                                    ng-disabled="tasks.length==0 || (todaysDataResult!=null && todaysDataResult.startTime!=null)">
+                                    Start Day
+                                </button>
+                                <button class="btn btn-outline-primary me-2" type="button" ng-click="updateTasks()"
+                                    ng-if="(todaysDataResult!=null && todaysDataResult.startTime!=null && todaysDataResult.endTime==null)">
+                                    Update Tasks
+                                </button>
+                            </div>
+                            <div class="col text-end">
+                                <button class="btn btn-outline-danger" type="button" ng-click="stopTimer()"
+                                    ng-disabled="todaysDataResult == null ||(todaysDataResult!=null && todaysDataResult.endTime!=null)">
+                                    End Day
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

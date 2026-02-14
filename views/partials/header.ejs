@@ -1,0 +1,227 @@
+<div ng-controller="HeaderController">
+  <header class="navbar navbar-expand-md d-print-none bg-white border-bottom" style="border-color: #e2e8f0 !important;">
+    <div class="container-xl">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
+        aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div style="cursor: pointer;"
+        class="navbar-brand d-flex align-items-center gap-2 pe-0 pe-md-3 text-dark text-decoration-none"
+        onclick="window.location.reload()">
+        <span class="header-brand-mark">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <path d="M7 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+            <path d="M7 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+            <path d="M17 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+            <path d="M7 8v8" />
+            <path d="M9 18h6a2 2 0 0 0 2 -2v-5" />
+            <path d="M14 13v7" />
+          </svg>
+        </span>
+        <span class="header-brand-name">Focus Flow</span>
+      </div>
+      <div class="navbar-nav flex-row order-md-last">
+        <div class="nav-item dropdown">
+          <a href="#" class="nav-link d-flex lh-1 p-0 px-2 text-dark" data-bs-toggle="dropdown"
+            aria-label="Open user menu">
+            <span class="avatar rounded-circle"
+              style="background-image: url({{profile.profileImage}}); width: 32px; height: 32px;"></span>
+            <div class="d-none d-xl-block ps-2">
+              <div class="fw-medium text-body" style="line-height: 20px;">{{ profile != null ? profile.name : '--' }}
+              </div>
+              <div style="font-size: 11px;" class="text-muted">{{ profile != null ? profile.jobTitle : '--' | uppercase
+                }}</div>
+            </div>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow shadow-sm border">
+            <a href="/app/account-settings" class="dropdown-item">Account Settings</a>
+            <a ng-click="logout()" class="dropdown-item">Logout</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <header class="navbar-expand-md bg-white border-bottom" style="border-color: #e2e8f0 !important;">
+    <div class="collapse navbar-collapse" id="navbar-menu">
+      <div class="navbar bg-white">
+        <div class="container-xl">
+          <div class="row flex-column flex-md-row flex-fill align-items-center">
+            <div class="col">
+              <ul class="navbar-nav text-dark">
+                <li class="nav-item">
+                  <a class="nav-link" href="/app/dashboard">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-device-desktop">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10z" />
+                        <path d="M7 20h10" />
+                        <path d="M9 16v4" />
+                        <path d="M15 16v4" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> Dashboard </span>
+                  </a>
+                </li>
+                <li class="nav-item dropdown"
+                  ng-if="profile!=null && ['superAdmin', 'hr', 'admin'].includes(profile.role)">
+                  <a class="nav-link dropdown-toggle" href="#masters" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" role="button" aria-expanded="false">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-layout-grid-add">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+                        <path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+                        <path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+                        <path d="M14 17h6m-3 -3v6" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> Masters </span>
+                  </a>
+                  <div class="dropdown-menu">
+                    <a class="dropdown-item" href="/admin/masters/users"> Users </a>
+                    <a class="dropdown-item" href="/admin/attendance"> Attendance </a>
+                  </div>
+                </li>
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle" href="#navbar-addons" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" role="button" aria-expanded="false">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-git-branch">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M7 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                        <path d="M7 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                        <path d="M17 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                        <path d="M7 8v8" />
+                        <path d="M9 18h6a2 2 0 0 0 2 -2v-5" />
+                        <path d="M14 13v7" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> Tasks </span>
+                  </a>
+                  <div class="dropdown-menu">
+                    <a class="dropdown-item" href="/app/task"> Today's Task </a>
+                    <a class="dropdown-item" href="/app/task-history"> Task History </a>
+                  </div>
+                </li>
+                <li class="nav-item"
+                  ng-if="profile != null && (profile.workType === 'onsite' || ['superAdmin', 'hr', 'admin'].includes(profile.role))">
+                  <a class="nav-link nav-link-documents" href="/app/documents" ng-class="{'active': isDocumentsPage}">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-file-text">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                        <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+                        <path d="M9 17h6" />
+                        <path d="M9 13h6" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> Documents </span>
+                  </a>
+                </li>
+                <li class="nav-item" ng-if="profile != null && ['hr', 'developer'].includes(profile.role)">
+                  <a class="nav-link nav-link-notice" href="/app/notice" ng-class="{'active': isNoticePage}">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-notification">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M10 6h-3a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-3" />
+                        <path d="M17 7m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> Notice Board </span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="/app/calendar">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-event">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <rect x="4" y="5" width="16" height="16" rx="2" />
+                        <line x1="16" y1="3" x2="16" y2="7" />
+                        <line x1="8" y1="3" x2="8" y2="7" />
+                        <line x1="4" y1="11" x2="20" y2="11" />
+                        <rect x="8" y="15" width="2" height="2" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title">Leave Calendar</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" style="cursor: pointer;" onclick="showTutorialModal()">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-brand-youtube">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M2 8a4 4 0 0 1 4 -4h12a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-12a4 4 0 0 1 -4 -4v-8z" />
+                        <path d="M10 9l5 3l-5 3z" />
+                      </svg>
+                    </span>
+                    <span class="nav-link-title"> <b>Tutorial</b> </span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div class="col col-md-auto">
+              <ul class="navbar-nav">
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Documents info modal (shown once for onsite users) -->
+  <div class="modal fade" id="documentsInfoModal" tabindex="-1" aria-labelledby="documentsInfoModalLabel"
+    aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title" id="documentsInfoModalLabel">Documents section added</h5>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0">The <strong>Documents</strong> section has been added to the app. It includes all SOPs and
+            other documents needed for developers to understand processes and guidelines.</p>
+          <p class="mb-0 mt-2 text-muted small">You can access it anytime from the <strong>Documents</strong> link in
+            the navigation.</p>
+        </div>
+        <div class="modal-footer border-top">
+          <button type="button" class="btn btn-primary" ng-click="acknowledgeDocumentsModal()">Got it</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tutorial Video Modal -->
+<div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="videoModalLabel">Tutorial Video</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <video width="100%" controls>
+          <source src="/Uploads/tutorials/video-tutorial-focustask.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </div>
+  </div>
+</div>

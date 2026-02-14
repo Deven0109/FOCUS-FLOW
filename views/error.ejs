@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error · Focus Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/css/tabler.min.css" />
+  <style>
+    body { background: #f1f5f9; font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .error-card { border: 1px solid #e2e8f0; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="page page-center">
+    <div class="container-tight py-5">
+      <div class="card error-card">
+        <div class="card-body text-center p-5">
+          <h1 class="display-4 text-muted mb-2"><%= error.status %></h1>
+          <p class="h4 text-body mb-4"><%= message %></p>
+          <a href="javascript:history.back()" class="btn btn-primary">Go back</a>
+        </div>
+      </div>
+      <% if (error && error.stack) { %>
+      <details class="mt-3">
+        <summary class="text-muted small" style="cursor: pointer;">Technical details</summary>
+        <pre class="small bg-light p-3 rounded mt-2 text-start overflow-auto" style="max-height: 200px;"><%= error.stack %></pre>
+      </details>
+      <% } %>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.2.0/dist/js/tabler.min.js"></script>
+</body>
+</html>

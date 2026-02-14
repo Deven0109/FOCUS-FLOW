@@ -1,0 +1,100 @@
+<script src="/javascripts/controllers/documentsController.js"></script>
+<div class="container-fluid" ng-controller="DocumentsController">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle text-muted">Resources</div>
+        <h1 class="page-title mb-1">Documents</h1>
+        <p class="text-muted mb-0">View and download documents by your work type</p>
+      </div>
+      <div class="col-auto" ng-if="isAdmin">
+        <button class="btn btn-primary" type="button" ng-click="openUploadModal()">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-body">
+    <div ng-if="isLoading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="text-muted small mt-2 mb-0">Loading…</p>
+    </div>
+    <div ng-if="!isLoading && documents.length === 0" class="card">
+      <div class="card-body text-center py-5">
+        <p class="text-muted mb-0">No documents found.</p>
+      </div>
+    </div>
+    <div ng-if="!isLoading && documents.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+      <div ng-repeat="doc in documents" class="col">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex align-items-start mb-2">
+              <div class="rounded bg-light text-secondary d-flex align-items-center justify-content-center me-3" style="width: 44px; height: 44px; flex-shrink: 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-text">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+                  <path d="M9 17h6" />
+                  <path d="M9 13h6" />
+                </svg>
+              </div>
+              <div class="min-w-0 flex-grow-1">
+                <h6 class="card-title mb-1 text-body fw-semibold">{{ doc.title }}</h6>
+                <div class="small text-muted">{{ formatDate(doc.createdAt) }}</div>
+                <span class="badge bg-light text-body border mt-1">{{ doc.category || 'Others' }}</span>
+              </div>
+            </div>
+            <p ng-if="doc.description" class="card-text small text-muted mb-3 flex-grow-1" style="min-height: 2.5em;">{{ doc.description }}</p>
+            <p ng-if="!doc.description" class="mb-3 flex-grow-1"></p>
+            <div class="d-flex gap-2 mt-auto pt-2 border-top">
+              <button type="button" class="btn btn-outline-primary" ng-click="viewDocument(doc)">View</button>
+              <button ng-if="isAdmin" type="button" class="btn btn-outline-danger" ng-click="deleteDocument(doc)">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Modal (inside controller so categories/workTypes are in scope) -->
+  <div class="modal fade" id="documentUploadModal" tabindex="-1" aria-labelledby="documentUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title" id="documentUploadModalLabel">Upload Document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" ng-model="uploadForm.title" placeholder="Document title" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" rows="2" ng-model="uploadForm.description" placeholder="Optional"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <select class="form-select" ng-model="uploadForm.category">
+              <option ng-repeat="c in categories" value="{{ c.value }}">{{ c.label }}</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Work type</label>
+            <select class="form-select" ng-model="uploadForm.workType">
+              <option ng-repeat="w in workTypes" value="{{ w.value }}">{{ w.label }}</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">PDF file</label>
+            <input type="file" id="documentFileInput" class="form-control" accept=".pdf" onchange="angular.element(this).scope().setUploadFile(this)">
+          </div>
+          <p class="text-danger small mb-0" ng-if="uploadError">{{ uploadError }}</p>
+        </div>
+        <div class="modal-footer border-top">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" ng-click="uploadDocument()" ng-disabled="isUploading">{{ isUploading ? 'Uploading…' : 'Upload' }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
