@@ -5,10 +5,37 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
         fromDate: '',
         toDate: '',
         leaveType: 'casual',
-        reason: ''
+        reason: '',
+        title: ''
     };
     $scope.myLeaves = [];
     $scope.calendarLoading = true;
+    $scope.selectedWorkType = 'all'; // Default to show all
+    $scope.today = new Date();
+    $scope.today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    // Helper to refresh my leave dates for validation
+    $scope.syncMyLeaveDates = function () {
+        HttpService.get('/api/leaves/me')
+            .then(function (response) {
+                let data = [];
+                // Check if response is the array (unwrapped) or wrapped in .data
+                if (Array.isArray(response)) {
+                    data = response;
+                } else if (response && Array.isArray(response.data)) {
+                    data = response.data;
+                }
+
+                if (data) {
+                    $scope.myLeaves = data;
+                    console.log('Syncing user leaves for validation...', data.length);
+                }
+            })
+            .catch(function (err) { console.error('Error syncing my leaves', err); });
+    };
+
+    // Load initial user leaves
+    $scope.syncMyLeaveDates();
 
     // Initialize FullCalendar
     $timeout(function () {
@@ -28,10 +55,40 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
             // Date click handler - open leave form
             dateClick: function (info) {
-                console.log('Date clicked:', info.dateStr);
+                // Robust check against myLeaves using STRING comparison to avoid Timezone issues
+                const clickedDateStr = info.dateStr; // "YYYY-MM-DD"
+                console.log('--- DATE CLICK CHECK ---');
+                console.log('Clicked Date:', clickedDateStr);
+
+                const isBlocked = $scope.myLeaves.some(leave => {
+                    if (leave.status === 'rejected') return false;
+
+                    // Parse dates carefully
+                    // Ensure we are working with just the date part YYYY-MM-DD
+                    const startRaw = new Date(leave.fromDate);
+                    const endRaw = new Date(leave.toDate);
+
+                    // If the date string in DB is "2026-02-15T00:00:00.000Z", we want "2026-02-15"
+                    const startStr = startRaw.toISOString().split('T')[0];
+                    const endStr = endRaw.toISOString().split('T')[0];
+
+                    console.log(`Checking Leave: ${startStr} to ${endStr}`, leave);
+
+                    return clickedDateStr >= startStr && clickedDateStr <= endStr;
+                });
+
+                console.log('Is Blocked?', isBlocked);
+
+                if (isBlocked) {
+                    toastr.error('You already have a leave request for this date.');
+                    return;
+                }
+
                 $timeout(function () {
-                    $scope.leaveForm.fromDate = info.dateStr;
-                    $scope.leaveForm.toDate = info.dateStr; // Default to same day
+                    // Use Date object for better compatibility with input[type="date"]
+                    const clickedDate = new Date(info.dateStr);
+                    $scope.leaveForm.fromDate = clickedDate;
+                    $scope.leaveForm.toDate = clickedDate; // Default to same day
                     $scope.leaveForm.duration = 'single'; // Default to single day
                     $scope.leaveForm.reason = '';
                     $scope.leaveForm.leaveType = 'casual';
@@ -55,44 +112,143 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
             // Load events from server
             events: function (info, successCallback, failureCallback) {
-                HttpService.get('/api/leaves')
+                console.log('--- START events function ---');
+                const url = `/api/leaves?workType=${$scope.selectedWorkType || 'all'}`;
+                HttpService.get(url)
                     .then(function (response) {
-                        if (response.status === 200) {
-                            successCallback(response.data);
-                            // Update icons after events are loaded
-                            $timeout(() => {
-                                updateViewIcons(response.data);
-                            }, 100);
-                        } else {
-                            failureCallback();
+                        try {
+                            let leaves = [];
+
+                            // Determine if response is the data array directly or wrapped
+                            if (Array.isArray(response)) {
+                                leaves = response;
+                            } else if (response && Array.isArray(response.data)) {
+                                leaves = response.data;
+                            } else {
+                                console.error('Unexpected response format:', response);
+                                failureCallback({ message: 'Invalid data format from server' });
+                                return;
+                            }
+
+                            // Grouping Logic
+                            const groups = {};
+
+                            leaves.forEach((leave, index) => {
+                                try {
+                                    if (!leave || !leave.start || !leave.end) return;
+
+                                    // Create a unique key for the start-end range
+                                    // Use simple string comparison of the ISO strings
+                                    const key = `${leave.start}_${leave.end}`;
+
+                                    if (!groups[key]) {
+                                        groups[key] = {
+                                            start: leave.start,
+                                            end: leave.end,
+                                            users: []
+                                        };
+                                    }
+
+                                    // Add user details to the group
+                                    const props = leave.extendedProps || {};
+                                    groups[key].users.push({
+                                        name: props.userName || 'Unknown User',
+                                        email: props.userEmail || '',
+                                        workType: props.userWorkType || 'onsite',
+                                        type: props.leaveType || 'LEAVE',
+                                        color: leave.backgroundColor || '#3b82f6',
+                                        title: props.title || 'No Title', // Include Title
+                                        reason: props.reason || '',
+                                        status: props.status || 'unknown',
+                                        dateRange: props.displayDateRange || 'Date not available'
+                                    });
+
+                                } catch (loopErr) {
+                                    console.error('Error in leaves loop for index ' + index + ':', loopErr);
+                                }
+                            });
+
+                            // Convert groups to FullCalendar events
+                            const calendarEvents = Object.values(groups).map(group => {
+                                // Determine the color of the group
+                                // If all users have the same color, use it. Otherwise use the default blue.
+                                const distinctColors = [...new Set(group.users.map(u => u.color))];
+                                const groupColor = distinctColors.length === 1 ? distinctColors[0] : '#3b82f6';
+
+                                return {
+                                    title: `View (${group.users.length})`,
+                                    start: group.start,
+                                    end: group.end,
+                                    allDay: true,
+                                    backgroundColor: groupColor,
+                                    borderColor: groupColor,
+                                    textColor: '#ffffff',
+                                    extendedProps: {
+                                        count: group.users.length,
+                                        users: group.users,
+                                        isAggregated: true
+                                    }
+                                };
+                            });
+
+                            console.log('Final Grouped Calendar Events:', calendarEvents);
+                            successCallback(calendarEvents);
+
+                        } catch (innerErr) {
+                            console.error('Error inside .then callback:', innerErr);
+                            failureCallback({ message: innerErr.message });
                         }
                     })
                     .catch(function (error) {
-                        console.error('Error loading leaves:', error);
-                        failureCallback();
+                        console.error('HttpService Promise Rejected:', error);
+                        failureCallback({ message: error ? error.message : 'Unknown error' });
                     });
             },
 
-            // Re-render icons when view or dates change
-            datesSet: function () {
-                $timeout(() => {
-                    updateViewIcons();
-                }, 100);
+            // Custom rendering for the Event Bar content
+            eventContent: function (arg) {
+                const props = arg.event.extendedProps;
+                const count = props.count || 0;
+
+                // Container
+                const container = document.createElement('div');
+                container.className = 'd-flex align-items-center w-100 h-100 px-1 overflow-hidden';
+                container.style.cursor = 'pointer';
+                container.style.backgroundColor = arg.event.backgroundColor;
+                container.style.borderRadius = '3px';
+
+                // Left Badge "View (N)"
+                const badge = document.createElement('div');
+                badge.className = 'd-flex align-items-center justify-content-center text-white fw-bold px-2 rounded-1 me-2';
+                badge.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+                badge.style.height = '20px';
+                badge.style.fontSize = '0.70rem';
+                badge.style.minWidth = 'fit-content';
+                badge.innerText = `View (${count})`;
+
+                // Right Text (User Count)
+                const text = document.createElement('div');
+                text.className = 'text-white fw-medium text-truncate';
+                text.style.fontSize = '0.8rem';
+                text.innerText = `${count} Users`;
+
+                container.appendChild(badge);
+                container.appendChild(text);
+
+                return { domNodes: [container] };
             },
 
-            // Custom rendering to support Tooltips and Labels
+            // Custom rendering to support Tooltips
             eventDidMount: function (info) {
-                // Initialize Bootstrap Tooltip
                 const props = info.event.extendedProps;
+                const userNames = props.users.map(u => u.name).join(', ');
                 const tooltipContent = `
                     <div class="text-start">
-                        <strong>${props.userName}</strong><br>
-                        Type: ${props.leaveType}<br>
-                        Reason: ${props.reason}
+                        <strong>${props.count} Users on Leave</strong><br>
+                        ${userNames}
                     </div>
                 `;
 
-                // Safe check for Bootstrap
                 try {
                     if (typeof bootstrap !== 'undefined') {
                         new bootstrap.Tooltip(info.el, {
@@ -103,25 +259,82 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                             container: 'body'
                         });
                     } else {
-                        info.el.setAttribute('title', `${props.userName} - ${props.leaveType} - ${props.reason}`);
+                        info.el.setAttribute('title', `${props.count} Users`);
                     }
                 } catch (e) {
                     console.warn('Bootstrap tooltip error:', e);
                 }
-
-                // Ensure text color contrast logic
-                if (props.leaveType === 'casual' || props.leaveType === 'personal') {
-                    // For lighter backgrounds, use black text
-                    info.el.style.color = '#000';
-                    const titleEl = info.el.querySelector('.fc-event-title');
-                    if (titleEl) titleEl.style.color = '#000';
-                }
             },
 
-            // Event click - show details for that day
+            // Event click - show details for that specific date range
             eventClick: function (info) {
-                if (info.event && info.event.start) {
-                    showLeavesForDate(info.event.start);
+                const props = info.event.extendedProps;
+
+                // Populate Modal Header with Range
+                const dateEl = document.getElementById('viewLeaveDate');
+                if (dateEl && props.users.length > 0) {
+                    // Use the title of the first leave if available, otherwise date range
+                    // User asked "view show leave for title show".
+                    // We will prioritize Title. If multiple users/titles, maybe showing distinct text is weird.
+                    // But for a single user (most commmon), showing title is good.
+                    // If aggregated, showing "Leaves for [Date]" is safer, and title in list.
+                    // Let's stick to the Date Range in Header (as per previous success) and emphasize Title in the list.
+                    // Wait, user said "view show leave for title show".
+
+                    // Let's try: "Leaves for [Title]" (if 1 user) or "Leaves for [Date Range]" (if >1)
+                    if (props.users.length === 1 && props.users[0].title) {
+                        dateEl.textContent = props.users[0].title;
+                    } else {
+                        dateEl.textContent = props.users[0].dateRange;
+                    }
+                }
+
+                const listContainer = document.getElementById('dayLeavesList');
+                if (listContainer) {
+                    listContainer.innerHTML = '';
+
+                    props.users.forEach(user => {
+                        const itemHTML = `
+                            <div class="list-group-item border-0 border-bottom py-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <div class="fw-bold text-dark mb-1" style="font-size: 1.25rem;">
+                                            ${user.name}
+                                            <span class="badge ${(user.workType || 'onsite').toLowerCase() === 'onsite' ? 'bg-success' : 'bg-info'} text-white ms-2" 
+                                                  style="font-size: 0.8rem; padding: 5px 10px; vertical-align: middle; letter-spacing: 0.5px;">
+                                                ${(user.workType || 'ONSITE').toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div class="text-secondary mb-2" style="font-size: 1rem;">${user.email}</div>
+                                        <div class="fw-bold" style="color: #0d6efd !important; font-size: 1.1rem;">Date : ${user.dateRange.replace(' - ', ' To ')}</div>
+                                    </div>
+                                    <span class="badge text-white text-uppercase" 
+                                          style="font-size: 1rem; padding: 10px 15px; letter-spacing: 0.5px; background-color: ${user.color} !important;">
+                                        ${(user.type || 'LEAVE').toUpperCase()}
+                                    </span>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <div class="p-3 bg-light rounded text-dark border">
+                                        <span class="fw-bold text-secondary text-uppercase me-2" style="font-size: 0.9rem;">Reason:</span>
+                                        <span class="text-dark" style="font-size: 1rem;">${user.reason || 'No reason provided.'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        listContainer.insertAdjacentHTML('beforeend', itemHTML);
+                    });
+
+                    try {
+                        const modalEl = document.getElementById('viewLeaveModal');
+                        if (typeof bootstrap !== 'undefined') {
+                            new bootstrap.Modal(modalEl).show();
+                        } else {
+                            $(modalEl).modal('show');
+                        }
+                    } catch (e) {
+                        console.error('Modal error:', e);
+                    }
                 }
             }
         });
@@ -149,7 +362,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     // Submit leave request
     $scope.submitLeave = function () {
         // Validation
-        if (!$scope.leaveForm.fromDate || (!$scope.leaveForm.toDate && $scope.leaveForm.duration === 'multiple') || !$scope.leaveForm.reason) {
+        if (!$scope.leaveForm.fromDate || (!$scope.leaveForm.toDate && $scope.leaveForm.duration === 'multiple') || !$scope.leaveForm.reason || !$scope.leaveForm.title) {
             toastr.error('Please fill all required fields');
             return;
         }
@@ -168,7 +381,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             fromDate: $scope.leaveForm.fromDate,
             toDate: $scope.leaveForm.toDate,
             leaveType: $scope.leaveForm.leaveType,
-            reason: $scope.leaveForm.reason
+            reason: $scope.leaveForm.reason,
+            title: $scope.leaveForm.title
         };
 
         HttpService.post('/api/leaves', leaveData)
@@ -176,12 +390,13 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 if (response && response.leave) {
                     toastr.success('Leave request submitted successfully');
 
-                    // Add event to calendar
-                    if (calendar && response.leave) {
-                        calendar.addEvent(response.leave);
-                        // Refresh icons
-                        $timeout(() => updateViewIcons(), 100);
+                    // Reload calendar to refresh aggregated events
+                    if (calendar) {
+                        calendar.refetchEvents();
                     }
+
+                    // Refresh my leaves for validation
+                    $scope.syncMyLeaveDates();
 
                     // Close modal safely
                     try {
@@ -203,7 +418,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                         fromDate: '',
                         toDate: '',
                         leaveType: 'casual',
-                        reason: ''
+                        reason: '',
+                        title: ''
                     };
                 } else {
                     const errorMsg = response && response.message ? response.message : 'Error submitting leave request';
@@ -226,8 +442,18 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     $scope.showMyLeaves = function () {
         HttpService.get('/api/leaves/me')
             .then(function (response) {
-                if (response.status === 200) {
-                    $scope.myLeaves = response.data;
+                let data = null;
+                // Handle unwrapped or wrapped response
+                if (Array.isArray(response)) {
+                    data = response;
+                } else if (response && Array.isArray(response.data)) {
+                    data = response.data;
+                }
+
+                if (data) {
+                    $scope.today = new Date();
+                    $scope.today.setHours(0, 0, 0, 0);
+                    $scope.myLeaves = data;
                     const modalEl = document.getElementById('myLeavesModal');
                     if (typeof bootstrap !== 'undefined') {
                         new bootstrap.Modal(modalEl).show();
@@ -235,6 +461,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                         $(modalEl).modal('show');
                     }
                 } else {
+                    console.error('Invalid my leaves response:', response);
                     toastr.error('Error loading your leaves');
                 }
             })
@@ -246,213 +473,63 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
     // Delete leave
     $scope.deleteLeave = function (leaveId) {
-        if (!confirm('Are you sure you want to delete this leave request?')) {
-            return;
+        Swal.fire({
+            title: 'Delete Leave?',
+            text: 'Are you sure you want to delete this leave request?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                HttpService.delete('/api/leaves/' + leaveId)
+                    .then(function (response) {
+                        // Check for success in both wrapped and unwrapped response formats
+                        if (response && (response.status === 200 || response.message === 'Leave deleted successfully')) {
+                            toastr.success('leave is sucessfully deleted');
+                            $scope.myLeaves = $scope.myLeaves.filter(l => l._id !== leaveId);
+                            if (calendar) {
+                                calendar.refetchEvents();
+                            }
+                        } else {
+                            const errorMsg = (response && response.data && response.data.message) || (response && response.message) || 'Error deleting leave';
+                            toastr.error(errorMsg);
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Error deleting leave:', error);
+                        toastr.error('Internal server error');
+                    });
+            }
+        });
+    };
+
+    // Handle Work Type Filter Change
+    $scope.onWorkTypeChange = function () {
+        if (calendar) {
+            calendar.refetchEvents();
         }
+    };
 
-        HttpService.delete('/api/leaves/' + leaveId)
-            .then(function (response) {
-                if (response.status === 200) {
-                    toastr.success('Leave deleted successfully');
-
-                    // Remove from list
-                    $scope.myLeaves = $scope.myLeaves.filter(l => l._id !== leaveId);
-
-                    // Reload calendar
-                    if (calendar) {
-                        calendar.refetchEvents();
-                        $timeout(() => updateViewIcons(), 100);
-                    }
-                } else {
-                    toastr.error(response.data.message || 'Error deleting leave');
-                }
-            })
-            .catch(function (error) {
-                console.error('Error deleting leave:', error);
-                toastr.error('Error deleting leave');
-            });
+    // Helper for delete permission (Only future leaves)
+    $scope.canDeleteLeave = function (fromDate) {
+        if (!fromDate) return false;
+        const leaveDate = new Date(fromDate);
+        leaveDate.setHours(0, 0, 0, 0);
+        return leaveDate > $scope.today;
     };
 
     // Helper function for leave color
-    $scope.getLeaveColor = function (leaveType) {
-        const colors = {
-            sick: '#dc3545',
-            casual: '#0dcaf0',
-            vacation: '#198754',
-            personal: '#ffc107'
-        };
-        return colors[leaveType] || '#0dcaf0';
+    $scope.getLeaveColor = function (type) {
+        switch (type ? type.toLowerCase() : "") {
+            case "casual": return "#0d6efd"; // Blue
+            case "sick": return "#dc3545";   // Red
+            case "vacation": return "#198754"; // Green
+            case "personal": return "#fd7e14"; // Orange
+            default: return "#3b82f6";       // Default Blue
+        }
     };
 
-    // --- Helper Functions for View Icons ---
-
-    function updateViewIcons(eventsData) {
-        // Clear existing icons
-        document.querySelectorAll('.day-view-icon').forEach(el => el.remove());
-
-        // Always prioritize calendar events for accuracy
-        let eventsSource = [];
-        if (calendar) {
-            eventsSource = calendar.getEvents().map(e => ({
-                start: e.start,
-                end: e.end,
-                allDay: e.allDay
-            }));
-        } else if (eventsData) {
-            // Fallback to raw data if calendar somehow not ready
-            eventsSource = eventsData;
-        }
-
-        // Identify all dates that have at least one leave
-        const activeDates = new Set();
-
-        eventsSource.forEach(event => {
-            let current = new Date(event.start);
-            let end;
-
-            if (event.end) {
-                end = new Date(event.end);
-            } else {
-                // If no end date, assume 1 day duration
-                end = new Date(current.getTime() + 86400000);
-            }
-
-            // Loop through each day of the leave
-            // IMPORTANT: Use local dates because FullCalendar renders in local time by default
-            while (current < end) {
-                // Get YYYY-MM-DD in local time
-                const offset = current.getTimezoneOffset();
-                const localDate = new Date(current.getTime() - (offset * 60 * 1000));
-                const dateStr = localDate.toISOString().split('T')[0];
-
-                activeDates.add(dateStr);
-                current.setDate(current.getDate() + 1);
-            }
-        });
-
-        // Inject icon for each active date
-        activeDates.forEach(dateStr => {
-            // FullCalendar uses data-date in local format (YYYY-MM-DD)
-            const dayCell = document.querySelector(`.fc-daygrid-day[data-date="${dateStr}"] .fc-daygrid-day-top`);
-            if (dayCell && !dayCell.querySelector('.day-view-icon')) {
-                const icon = document.createElement('div');
-                icon.className = 'day-view-icon text-primary position-absolute start-0 top-0 m-1';
-                icon.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                         <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
-                         <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>
-                    </svg>
-                `;
-                icon.style.zIndex = "10";
-                icon.style.cursor = "pointer";
-                icon.title = "View Leaves";
-
-                // Click handler
-                icon.onclick = function (e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    // Pass the local date string to avoid timezone shifts when creating back a Date object
-                    showLeavesForDate(dateStr);
-                };
-
-                dayCell.style.position = 'relative';
-                dayCell.appendChild(icon);
-            }
-        });
-    }
-
-    // Function to show modal with leaves for a specific date
-    function showLeavesForDate(dateInput) {
-        if (!dateInput) return;
-
-        // Ensure we are working with the date purely as a date (YYYY-MM-DD)
-        // If passed as string, create date in local time (append T00:00:00)
-        let checkDate;
-        if (typeof dateInput === 'string') {
-            checkDate = new Date(dateInput + 'T00:00:00');
-        } else {
-            checkDate = new Date(dateInput);
-            checkDate.setHours(0, 0, 0, 0);
-        }
-
-        const displayDate = checkDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-        // Filter events that happen on this date
-        const allEvents = calendar ? calendar.getEvents() : [];
-        const daysLeaves = allEvents.filter(event => {
-            let start = new Date(event.start);
-            let end = event.end ? new Date(event.end) : new Date(start.getTime() + 86400000);
-
-            // Normalize start/end into local dates for comparison
-            start.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-
-            // Exclusive end logic: checkDate >= start AND checkDate < end
-            return checkDate.getTime() >= start.getTime() && checkDate.getTime() < end.getTime();
-        });
-
-        if (daysLeaves.length === 0) {
-            toastr.info('No leaves found for this date.');
-            return;
-        }
-
-        // Populate Modal
-        const dateEl = document.getElementById('viewLeaveDate');
-        if (dateEl) dateEl.textContent = displayDate;
-
-        const listContainer = document.getElementById('dayLeavesList');
-        if (listContainer) {
-            listContainer.innerHTML = '';
-
-            daysLeaves.forEach(event => {
-                const props = event.extendedProps;
-                const startDate = new Date(event.start).toLocaleDateString();
-                // Fix visual end date (exclusive end - 1 day)
-                let endDateStr = startDate;
-                if (event.end) {
-                    const endDateObj = new Date(event.end.getTime() - 86400000); // Subtract 1 day
-                    endDateStr = endDateObj.toLocaleDateString();
-                }
-
-                const badgeColor = event.backgroundColor || '#0dcaf0';
-
-                // Text color
-                const textColor = (badgeColor === '#0dcaf0' || badgeColor === '#ffc107') ? '#000' : '#fff';
-
-                const itemHTML = `
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <h5 class="mb-0 fw-bold text-dark">${props.userName || 'Unknown'}</h5>
-                            <span class="badge" style="background-color: ${badgeColor}; color: ${textColor}">${(props.leaveType || 'LEAVE').toUpperCase()}</span>
-                        </div>
-                        <div class="small text-muted mb-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                <line x1="16" y1="2" x2="16" y2="6"></line>
-                                <line x1="8" y1="2" x2="8" y2="6"></line>
-                                <line x1="3" y1="10" x2="21" y2="10"></line>
-                            </svg>
-                            ${startDate} - ${endDateStr}
-                        </div>
-                        <div class="p-2 bg-light rounded border text-secondary small">
-                            <strong>Reason:</strong> ${props.reason || '-'}
-                        </div>
-                    </div>
-                `;
-                listContainer.insertAdjacentHTML('beforeend', itemHTML);
-            });
-
-            // Show Modal
-            try {
-                const modalEl = document.getElementById('viewLeaveModal');
-                if (typeof bootstrap !== 'undefined') {
-                    new bootstrap.Modal(modalEl).show();
-                } else {
-                    $(modalEl).modal('show');
-                }
-            } catch (e) {
-                console.error('Modal error:', e);
-            }
-        }
-    }
 });

@@ -2,29 +2,54 @@ const Leave = require('../../models/leave');
 const User = require('../../models/users');
 
 // Get all approved leaves (for calendar display)
+// Get all approved leaves (for calendar display)
 exports.getAllLeaves = async (req, res) => {
     try {
-        const leaves = await Leave.find({ status: 'approved' })
+        const { workType } = req.query;
+        let query = { status: 'approved' };
+
+        const leaves = await Leave.find(query)
             .populate('user', 'name email workType')
             .sort({ fromDate: 1 });
 
+        // Filter by user workType if specified
+        let filteredLeaves = leaves.filter(leave => leave.user);
+        if (workType && workType !== 'all') {
+            filteredLeaves = filteredLeaves.filter(leave =>
+                leave.user.workType && leave.user.workType.toLowerCase() === workType.toLowerCase()
+            );
+        }
+
         // Format for FullCalendar
-        const events = leaves.filter(leave => leave.user).map(leave => ({
-            id: leave._id,
-            title: leave.user ? leave.user.name : 'Unknown User',
-            start: leave.fromDate,
-            end: new Date(leave.toDate.getTime() + 86400000), // Add 1 day for FullCalendar (exclusive end)
-            allDay: true, // Force block rendering
-            backgroundColor: getLeaveColor(leave.leaveType),
-            borderColor: getLeaveColor(leave.leaveType),
-            extendedProps: {
-                userName: leave.user ? leave.user.name : 'Unknown',
-                userEmail: leave.user ? leave.user.email : '',
-                leaveType: leave.leaveType,
-                reason: leave.reason,
-                status: leave.status
-            }
-        }));
+        const events = filteredLeaves.map(leave => {
+            const start = new Date(leave.fromDate);
+            const end = new Date(leave.toDate);
+            const diffTime = Math.abs(end - start);
+            const duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+            return {
+                id: leave._id,
+                title: `View (${duration})`,
+                start: leave.fromDate,
+                end: new Date(leave.toDate.getTime() + 86400000), // Add 1 day for FullCalendar (exclusive end)
+                allDay: true,
+                backgroundColor: getLeaveColor(leave.leaveType),
+                borderColor: getLeaveColor(leave.leaveType),
+                textColor: '#ffffff',
+                extendedProps: {
+                    userName: leave.user ? leave.user.name : 'Unknown',
+                    userEmail: leave.user ? leave.user.email : '',
+                    userWorkType: leave.user ? leave.user.workType : '',
+                    leaveType: leave.leaveType,
+                    title: leave.title || '', // Include title
+                    reason: leave.reason,
+                    status: leave.status,
+                    duration: duration,
+                    displayDateRange: `${start.toLocaleDateString('en-GB')} - ${end.toLocaleDateString('en-GB')}`
+                }
+            };
+        });
+
 
         res.status(200).json(events);
     } catch (error) {
@@ -40,7 +65,7 @@ exports.createLeave = async (req, res) => {
         console.log('Body:', req.body);
         console.log('User ID:', req.userId);
 
-        const { fromDate, toDate, reason, leaveType } = req.body;
+        const { fromDate, toDate, reason, leaveType, title } = req.body;
         const userId = req.userId;
 
         if (!userId) {
@@ -49,9 +74,9 @@ exports.createLeave = async (req, res) => {
         }
 
         // 1. Validate Fields
-        if (!fromDate || !toDate || !reason) {
+        if (!fromDate || !toDate || !reason || !title) {
             console.error('Missing fields');
-            return res.status(400).json({ message: 'Missing required fields: From Date, To Date, or Reason' });
+            return res.status(400).json({ message: 'Missing required fields: From Date, To Date, Reason, or Title' });
         }
 
         // 2. Parse Dates
@@ -74,6 +99,7 @@ exports.createLeave = async (req, res) => {
             fromDate: start,
             toDate: end,
             reason: reason,
+            title: title, // Save title
             leaveType: leaveType || 'casual',
             status: 'approved'
         });
@@ -97,18 +123,23 @@ exports.createLeave = async (req, res) => {
             message: 'Leave request created successfully',
             leave: {
                 id: leave._id,
-                title: leave.user ? leave.user.name : 'New Leave',
+                title: `View (${Math.ceil(Math.abs(new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1})`,
                 start: leave.fromDate,
                 end: new Date(leave.toDate.getTime() + 86400000),
                 allDay: true,
-                backgroundColor: getLeaveColor(leave.leaveType),
-                borderColor: getLeaveColor(leave.leaveType),
+                backgroundColor: '#3b82f6',
+                borderColor: '#2563eb',
+                textColor: '#ffffff',
                 extendedProps: {
                     userName: leave.user ? leave.user.name : 'Unknown',
                     userEmail: leave.user ? leave.user.email : '',
+                    userWorkType: leave.user ? leave.user.workType : '',
                     leaveType: leave.leaveType,
+                    title: leave.title || '',
                     reason: leave.reason,
-                    status: leave.status
+                    status: leave.status,
+                    duration: Math.ceil(Math.abs(new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1,
+                    displayDateRange: `${new Date(leave.fromDate).toLocaleDateString('en-GB')} - ${new Date(leave.toDate).toLocaleDateString('en-GB')}`
                 }
             }
         };
@@ -130,7 +161,7 @@ exports.getUserLeaves = async (req, res) => {
     try {
         const userId = req.userId; // Use req.userId attached by authMiddleware
         const leaves = await Leave.find({ user: userId })
-            .populate('user', 'name email')
+            .populate('user', 'name email workType')
             .sort({ fromDate: -1 });
 
         res.status(200).json(leaves);
@@ -162,12 +193,12 @@ exports.deleteLeave = async (req, res) => {
 };
 
 // Helper function to get color based on leave type
-function getLeaveColor(leaveType) {
-    const colors = {
-        sick: '#dc3545',      // Red
-        casual: '#0dcaf0',    // Cyan
-        vacation: '#198754',  // Green
-        personal: '#ffc107'   // Yellow
-    };
-    return colors[leaveType] || '#0dcaf0';
-}
+const getLeaveColor = (type) => {
+    switch (type ? type.toLowerCase() : '') {
+        case 'casual': return '#0d6efd'; // Primary Blue
+        case 'sick': return '#dc3545';   // Danger Red
+        case 'vacation': return '#198754'; // Success Green
+        case 'personal': return '#fd7e14'; // Orange
+        default: return '#3b82f6';       // Default Blue
+    }
+};

@@ -221,28 +221,12 @@ app.controller('NoticeController', ['$scope', '$http', '$window', 'HttpService',
 
         HttpService.upload(endpoint, formData)
             .then(function (response) {
-                if (response.status === 200) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: response.message,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
+                if (response.status === 200 || response.message === 'Notice created successfully' || response.message === 'Notice updated successfully') {
+                    toastr.success(response.message || 'Saved successfully');
                     $('#noticeModal').modal('hide');
                     $scope.loadNotices();
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: response.message || 'Failed to save notice',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
+                    toastr.error(response.message || 'Failed to save notice');
                 }
             })
             .catch(function (error) {
@@ -288,27 +272,11 @@ app.controller('NoticeController', ['$scope', '$http', '$window', 'HttpService',
             if (result.isConfirmed) {
                 HttpService.post(endpoints.NOTICE_DELETE, { _id: notice._id })
                     .then(function (response) {
-                        if (response.status === 200) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Deleted!',
-                                text: response.message,
-                                toast: true,
-                                position: 'top-end',
-                                showConfirmButton: false,
-                                timer: 3000
-                            });
+                        if (response.status === 200 || response.message === 'Notice deleted successfully') {
+                            toastr.success(response.message || 'Notice deleted successfully');
                             $scope.loadNotices();
                         } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: response.message || 'Failed to delete notice',
-                                toast: true,
-                                position: 'top-end',
-                                showConfirmButton: false,
-                                timer: 3000
-                            });
+                            toastr.error(response.message || 'Failed to delete notice');
                         }
                     })
                     .catch(function (error) {
