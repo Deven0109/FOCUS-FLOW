@@ -127,21 +127,11 @@ exports.saveUser = asyncHandler(async (req, res) => {
             return response.badRequest("Account already exists with this email or mobile number", res);
         }
 
-        // Ensure non-developer roles have no workType
-        if (value.role !== 'developer') {
-            delete value.workType;
-        }
-
         delete value.password;
         await models.User.findByIdAndUpdate(value._id, value, { new: true });
         return response.success("User account updated successfully", true, res);
     } else {
         delete value._id;
-
-        // Cleanup non-developer workType
-        if (value.role !== 'developer') {
-            delete value.workType;
-        }
 
         // Check if trying to create a Super Admin and if one already exists
         if (value.role === 'superAdmin') {

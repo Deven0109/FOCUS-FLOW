@@ -718,48 +718,81 @@ exports.getDailyAttendanceList = asyncHandler(async (req, res) => {
 
 exports.markManualAttendance = asyncHandler(async (req, res) => {
     try {
-        const { userId, date, startTime, endTime } = req.body;
+        const { userId, date, startTime, endTime, tasks } = req.body;
         const timezone = 'Asia/Kolkata';
 
         if (!userId || !date || !startTime) {
-            return response.error("Missing required fields", null, res);
+            return response.success("Missing required fields", null, res);
         }
 
-        const targetDate = moment.tz(date, timezone).startOf('day').toDate();
+        const startOfDay = moment.tz(date, timezone).startOf('day').toDate();
+        const endOfDay = moment.tz(date, timezone).endOf('day').toDate();
+
         const startDateTime = moment.tz(`${date} ${startTime}`, 'YYYY-MM-DD HH:mm', timezone).toDate();
         const endDateTime = endTime ? moment.tz(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm', timezone).toDate() : null;
 
-        let record = await models.DailyStatus.findOne({ user: userId, date: targetDate });
+        let record = await models.DailyStatus.findOne({
+            user: userId,
+            date: { $gte: startOfDay, $lte: endOfDay }
+        });
 
-        const manualTask = {
-            _id: new mongoose.Types.ObjectId(),
-            task: "Manually marked attendance",
-            status: 'completed',
-            priority: 'medium',
-            isTrackerStarted: false,
-            totalSeconds: 0,
-            countView: "00:00:00"
-        };
+        let tasksToInsert = [];
+
+        if (tasks && Array.isArray(tasks) && tasks.length > 0) {
+            tasksToInsert = tasks.map(taskDesc => ({
+                _id: new mongoose.Types.ObjectId(),
+                task: taskDesc,
+                assignedTo: userId,
+                assignedBy: req.userId,
+                status: 'completed',
+                priority: 'medium',
+                isTrackerStarted: false,
+                initalStartedTime: null,
+                lastStartedTime: null,
+                endedTime: null,
+                countView: "00:00:00",
+                totalSeconds: 0,
+                estimatedTime: { hour: "0", minutes: "15" },
+                carriedOver: false
+            }));
+        } else {
+            tasksToInsert.push({
+                _id: new mongoose.Types.ObjectId(),
+                task: "Manually marked attendance",
+                assignedTo: userId,
+                assignedBy: req.userId,
+                status: 'completed',
+                priority: 'medium',
+                isTrackerStarted: false,
+                initalStartedTime: null,
+                lastStartedTime: null,
+                endedTime: null,
+                countView: "00:00:00",
+                totalSeconds: 0,
+                estimatedTime: { hour: "0", minutes: "15" },
+                carriedOver: false
+            });
+        }
 
         if (record) {
             record.startTime = startDateTime;
             if (endDateTime) record.endTime = endDateTime;
-            record.tasks.push(manualTask);
+            record.tasks.push(...tasksToInsert);
             await record.save();
         } else {
             await models.DailyStatus.create({
                 user: userId,
-                date: targetDate,
+                date: startOfDay,
                 startTime: startDateTime,
                 endTime: endDateTime,
-                tasks: [manualTask]
+                tasks: tasksToInsert
             });
         }
 
         return response.success("Attendance marked manually", true, res);
     } catch (error) {
         console.error('Error marking manual attendance:', error);
-        return response.error("Error marking manual attendance", error.message, res);
+        return response.serverError(error, res);
     }
 });
 

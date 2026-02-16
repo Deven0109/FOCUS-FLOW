@@ -9,6 +9,7 @@ const usersCtrl = require('./../controllers/web/users');
 const documentsCtrl = require('./../controllers/web/documents');
 const noticeCtrl = require('./../controllers/web/notice');
 const leaveCtrl = require('./../controllers/web/leave');
+const notificationCtrl = require('./../controllers/web/notification');
 const { authMiddleware, adminCheck, hrOnlyCheck, hrOrDeveloperCheck } = require('./../middleware/auth_middleware');
 const { checkRBAC } = require('./../middleware/rbacMiddleware');
 const uploader = require('./../utils/aws_upload').uploadToAWS;
@@ -79,5 +80,11 @@ router.get("/leaves", authMiddleware, leaveCtrl.getAllLeaves);
 router.post("/leaves", authMiddleware, leaveCtrl.createLeave);
 router.get("/leaves/me", authMiddleware, leaveCtrl.getUserLeaves);
 router.delete("/leaves/:id", authMiddleware, leaveCtrl.deleteLeave);
+
+// Notification routes
+router.get("/notifications", authMiddleware, notificationCtrl.getNotifications);
+router.put("/notifications/:id/read", authMiddleware, notificationCtrl.markAsRead);
+router.put("/notifications/read-all", authMiddleware, notificationCtrl.markAllAsRead);
+router.delete("/notifications/:id", authMiddleware, notificationCtrl.deleteNotification);
 
 module.exports = router;

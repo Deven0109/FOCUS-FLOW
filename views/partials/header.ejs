@@ -22,7 +22,71 @@
         </span>
         <span class="header-brand-name">Focus Flow</span>
       </div>
-      <div class="navbar-nav flex-row order-md-last">
+      <div class="navbar-nav flex-row order-md-last align-items-center">
+        <!-- Notification Dropdown -->
+        <div class="nav-item dropdown me-3">
+          <a href="#" class="nav-link px-0 text-dark" data-bs-toggle="dropdown" tabindex="-1"
+            aria-label="Show notifications">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
+              stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6"></path>
+              <path d="M9 17v1a3 3 0 0 0 6 0v-1"></path>
+            </svg>
+            <span class="badge bg-red text-red-fg"
+              ng-if="unreadNotificationsCount > 0">{{unreadNotificationsCount}}</span>
+          </a>
+          <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card shadow-sm border"
+            style="width: 350px; max-height: 450px; overflow-y: auto;">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <h3 class="card-title" style="font-size: 0.9rem;">Notifications</h3>
+                <a href="javascript:void(0)" class="small" ng-click="markAllAsRead()"
+                  ng-if="notifications.length > 0">Mark all as read</a>
+              </div>
+              <div class="list-group list-group-flush list-group-hoverable">
+                <div class="list-group-item text-center py-4" ng-if="notifications.length === 0">
+                  <div class="text-muted">No new notifications</div>
+                </div>
+                <div class="list-group-item py-2" ng-repeat="noti in notifications"
+                  ng-class="{'bg-light': !noti.isRead}" style="cursor: pointer;"
+                  ng-click="handleNotificationClick(noti)">
+                  <div class="row align-items-center">
+                    <div class="col-auto">
+                      <span class="status-dot" ng-class="{'status-dot-animated bg-red': !noti.isRead}"></span>
+                    </div>
+                    <div class="col text-truncate">
+                      <div class="text-body d-block fw-bold" style="font-size: 0.85rem;">{{noti.title}}</div>
+                      <div class="d-block text-muted text-truncate mt-n1" style="font-size: 0.75rem;">
+                        {{noti.message}}
+                      </div>
+                      <div class="text-muted small mt-1" style="font-size: 0.65rem;">
+                        {{formatTime(noti.createdAt)}}
+                      </div>
+                    </div>
+                    <div class="col-auto">
+                      <a href="javascript:void(0)" class="text-muted text-hover-danger"
+                        ng-click="deleteNotification($event, noti)" title="Delete notification">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="14"
+                          height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"
+                          stroke-linecap="round" stroke-linejoin="round">
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                          <path d="M18 6l-12 12" />
+                          <path d="M6 6l12 12" />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-footer text-center py-2"
+                ng-if="notifications.length > 0 && notificationPage < totalPages">
+                <a href="javascript:void(0)" class="small" ng-click="loadNotifications(true)">View More</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="nav-item dropdown">
           <a href="#" class="nav-link d-flex lh-1 p-0 px-2 text-dark" data-bs-toggle="dropdown"
             aria-label="Open user menu">
@@ -52,7 +116,8 @@
             <div class="col">
               <ul class="navbar-nav text-dark">
                 <li class="nav-item">
-                  <a class="nav-link" href="/app/dashboard">
+                  <a class="nav-link" href="/app/dashboard" ng-class="{'active': isDashboardPage}"
+                    ng-style="isDashboardPage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -70,7 +135,9 @@
                 <li class="nav-item dropdown"
                   ng-if="profile!=null && ['superAdmin', 'hr', 'admin'].includes(profile.role)">
                   <a class="nav-link dropdown-toggle" href="#masters" data-bs-toggle="dropdown"
-                    data-bs-auto-close="outside" role="button" aria-expanded="false">
+                    data-bs-auto-close="outside" role="button" aria-expanded="false"
+                    ng-class="{'active': isMastersPage}"
+                    ng-style="isMastersPage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -91,7 +158,8 @@
                 </li>
                 <li class="nav-item dropdown">
                   <a class="nav-link dropdown-toggle" href="#navbar-addons" data-bs-toggle="dropdown"
-                    data-bs-auto-close="outside" role="button" aria-expanded="false">
+                    data-bs-auto-close="outside" role="button" aria-expanded="false" ng-class="{'active': isTasksPage}"
+                    ng-style="isTasksPage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -114,7 +182,8 @@
                 </li>
                 <li class="nav-item"
                   ng-if="profile != null && (profile.workType === 'onsite' || ['superAdmin', 'hr', 'admin'].includes(profile.role))">
-                  <a class="nav-link nav-link-documents" href="/app/documents" ng-class="{'active': isDocumentsPage}">
+                  <a class="nav-link nav-link-documents" href="/app/documents" ng-class="{'active': isDocumentsPage}"
+                    ng-style="isDocumentsPage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -129,8 +198,10 @@
                     <span class="nav-link-title"> Documents </span>
                   </a>
                 </li>
-                <li class="nav-item" ng-if="profile != null && ['hr', 'developer'].includes(profile.role)">
-                  <a class="nav-link nav-link-notice" href="/app/notice" ng-class="{'active': isNoticePage}">
+                <li class="nav-item"
+                  ng-if="profile != null && ['superAdmin', 'admin', 'hr', 'developer'].includes(profile.role)">
+                  <a class="nav-link nav-link-notice" href="/app/notice" ng-class="{'active': isNoticePage}"
+                    ng-style="isNoticePage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -144,7 +215,8 @@
                   </a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="/app/calendar">
+                  <a class="nav-link" href="/app/calendar" ng-class="{'active': isLeaveCalendarPage}"
+                    ng-style="isLeaveCalendarPage && {'color': '#475569', 'font-weight': 'bold'}">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

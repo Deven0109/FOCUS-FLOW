@@ -73,12 +73,25 @@ app.controller("AttendanceController", ($scope, HttpService, SweetAlertService) 
         $('#tasksModal').modal('show');
     };
 
+    $scope.addTask = function () {
+        if ($scope.manualEntry.currentTaskInput && $scope.manualEntry.currentTaskInput.trim() !== '') {
+            $scope.manualEntry.tasks.push($scope.manualEntry.currentTaskInput.trim());
+            $scope.manualEntry.currentTaskInput = '';
+        }
+    };
+
+    $scope.removeTask = function (index) {
+        $scope.manualEntry.tasks.splice(index, 1);
+    };
+
     $scope.openManualModal = function () {
         $scope.manualEntry = {
             userId: '',
             date: new Date(),
             startTime: null,
-            endTime: null
+            endTime: null,
+            tasks: [],
+            currentTaskInput: ''
         };
         $('#manualModal').modal('show');
     };
@@ -94,7 +107,8 @@ app.controller("AttendanceController", ($scope, HttpService, SweetAlertService) 
             userId: $scope.manualEntry.userId,
             date: moment($scope.manualEntry.date).format('YYYY-MM-DD'),
             startTime: moment($scope.manualEntry.startTime).format('HH:mm'),
-            endTime: $scope.manualEntry.endTime ? moment($scope.manualEntry.endTime).format('HH:mm') : null
+            endTime: $scope.manualEntry.endTime ? moment($scope.manualEntry.endTime).format('HH:mm') : null,
+            tasks: $scope.manualEntry.tasks
         };
 
         HttpService.post(endpoints.MARK_MANUAL_ATTENDANCE, payload)

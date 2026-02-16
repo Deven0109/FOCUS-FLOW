@@ -4,18 +4,36 @@ const models = require('./../../models/zindex');
 const response = require('./../../utils/response');
 const asyncHandler = require('express-async-handler');
 const { removeFile } = require('./../../utils/aws_upload');
+const { createNotification } = require('../../utils/notificationHelper');
 
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
 
 exports.list = asyncHandler(async (req, res) => {
-    const user = await models.User.findById(req.userId).select('workType').lean();
-    if (!user || !user.workType) {
+    const user = await models.User.findById(req.userId).select('workType role name').lean();
+    if (!user) {
         return response.success('Documents retrieved successfully', [], res);
     }
-    const docs = await models.Document.find({ workType: user.workType })
+
+    const adminRoles = ['superadmin', 'hr', 'admin', 'human resource'];
+    const userRole = (user.role || '').toLowerCase();
+    const isAdmin = adminRoles.includes(userRole);
+
+    let query = {};
+    if (!isAdmin) {
+        if (!user.workType) {
+            return response.success('Documents retrieved successfully', [], res);
+        }
+        query.workType = user.workType;
+    }
+
+    console.log(`Document List Module: User=${user.name}, Role=${userRole}, IsAdmin=${isAdmin}, Query=${JSON.stringify(query)}`);
+
+    const docs = await models.Document.find(query)
         .populate('uploadedBy', 'name')
         .sort({ createdAt: -1 })
         .lean();
+
+    console.log(`Documents Found for ${user.name}: ${docs.length}`);
     return response.success('Documents retrieved successfully', docs, res);
 });
 
@@ -43,6 +61,18 @@ exports.upload = asyncHandler(async (req, res) => {
         uploadedBy: req.userId
     });
     const populated = await models.Document.findById(doc._id).populate('uploadedBy', 'name').lean();
+
+    // Send Notification
+    await createNotification({
+        title: "New Work Assigned",
+        message: `New ${docWorkType} work has been uploaded: ${title}`,
+        type: "WORK_UPLOAD",
+        workType: docWorkType,
+        module: "work",
+        referenceId: doc._id,
+        sender: req.userId
+    });
+
     return response.success('Document uploaded successfully', populated, res);
 });
 
@@ -67,8 +97,12 @@ exports.download = asyncHandler(async (req, res) => {
     if (!doc) {
         return response.notFound(res);
     }
-    const user = await models.User.findById(req.userId).select('workType').lean();
-    if (!user || doc.workType !== user.workType) {
+    const user = await models.User.findById(req.userId).select('workType role').lean();
+    const adminRoles = ['superadmin', 'hr', 'admin', 'human resource'];
+    const userRole = (user && user.role) ? user.role.toLowerCase() : '';
+    const isAdmin = adminRoles.includes(userRole);
+
+    if (!user || (!isAdmin && doc.workType !== user.workType)) {
         return response.forbidden('You do not have access to this document', res);
     }
     const filePath = path.join(UPLOADS_DIR, doc.fileKey);

@@ -28,16 +28,17 @@ const adminCheck = (req, res, next) => {
 };
 
 const hrOnlyCheck = (req, res, next) => {
-  if (req.userRole !== 'hr') {
-    return response.forbidden('Access denied. HR role required.', res);
+  const allowedRoles = ['superAdmin', 'admin', 'hr'];
+  if (!allowedRoles.includes(req.userRole)) {
+    return response.forbidden('Access denied. Administrative or HR role required.', res);
   }
   next();
 };
 
 const hrOrDeveloperCheck = (req, res, next) => {
-  const allowedRoles = ['hr', 'developer'];
+  const allowedRoles = ['superAdmin', 'admin', 'hr', 'developer'];
   if (!allowedRoles.includes(req.userRole)) {
-    return response.forbidden('Access denied. This module is only for HR and Developers.', res);
+    return response.forbidden('Access denied.', res);
   }
   next();
 };

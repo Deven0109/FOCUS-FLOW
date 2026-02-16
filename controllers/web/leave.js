@@ -1,5 +1,6 @@
 const Leave = require('../../models/leave');
 const User = require('../../models/users');
+const { createNotification } = require('../../utils/notificationHelper');
 
 // Get all approved leaves (for calendar display)
 // Get all approved leaves (for calendar display)
@@ -109,6 +110,18 @@ exports.createLeave = async (req, res) => {
         await leave.save();
         console.log('Leave saved:', leave._id);
 
+        // Send Notification to all active users
+        const requester = await User.findById(userId).select('name');
+        await createNotification({
+            title: "New Leave Request",
+            message: `${requester ? requester.name : 'An employee'} submitted a leave request`,
+            type: "LEAVE_REQUEST",
+            workType: "all",
+            module: "leave-calendar",
+            referenceId: leave._id,
+            sender: userId
+        });
+
         // 5. Populate User (Try/Catch wrapper)
         try {
             await leave.populate('user', 'name email workType');
@@ -127,8 +140,8 @@ exports.createLeave = async (req, res) => {
                 start: leave.fromDate,
                 end: new Date(leave.toDate.getTime() + 86400000),
                 allDay: true,
-                backgroundColor: '#3b82f6',
-                borderColor: '#2563eb',
+                backgroundColor: getLeaveColor(leaveType),
+                borderColor: getLeaveColor(leaveType),
                 textColor: '#ffffff',
                 extendedProps: {
                     userName: leave.user ? leave.user.name : 'Unknown',
@@ -195,10 +208,10 @@ exports.deleteLeave = async (req, res) => {
 // Helper function to get color based on leave type
 const getLeaveColor = (type) => {
     switch (type ? type.toLowerCase() : '') {
-        case 'casual': return '#0d6efd'; // Primary Blue
-        case 'sick': return '#dc3545';   // Danger Red
-        case 'vacation': return '#198754'; // Success Green
-        case 'personal': return '#fd7e14'; // Orange
-        default: return '#3b82f6';       // Default Blue
+        case 'casual': return 'rgba(13, 110, 253, 0.4)'; // Primary Blue (Transparent)
+        case 'sick': return 'rgba(220, 53, 69, 0.4)';   // Danger Red (Transparent)
+        case 'vacation': return 'rgba(25, 135, 84, 0.4)'; // Success Green (Transparent)
+        case 'personal': return 'rgba(253, 126, 20, 0.4)'; // Orange (Transparent)
+        default: return 'rgba(59, 130, 246, 0.4)';       // Default Blue (Transparent)
     }
 };

@@ -47,6 +47,12 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 center: 'title',
                 right: 'dayGridMonth,dayGridWeek'
             },
+            buttonText: {
+                today: 'Today',
+                month: 'Month',
+                week: 'Week',
+                day: 'Day'
+            },
             selectable: true,
             selectMirror: true,
             editable: false,
@@ -68,9 +74,10 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     const startRaw = new Date(leave.fromDate);
                     const endRaw = new Date(leave.toDate);
 
-                    // If the date string in DB is "2026-02-15T00:00:00.000Z", we want "2026-02-15"
-                    const startStr = startRaw.toISOString().split('T')[0];
-                    const endStr = endRaw.toISOString().split('T')[0];
+                    // Use toLocaleDateString('en-CA') to get YYYY-MM-DD in local time
+                    // This handles timezone offsets correctly without manual parsing
+                    const startStr = startRaw.toLocaleDateString('en-CA');
+                    const endStr = endRaw.toLocaleDateString('en-CA');
 
                     console.log(`Checking Leave: ${startStr} to ${endStr}`, leave);
 
@@ -137,27 +144,29 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                                 try {
                                     if (!leave || !leave.start || !leave.end) return;
 
-                                    // Create a unique key for the start-end range
-                                    // Use simple string comparison of the ISO strings
-                                    const key = `${leave.start}_${leave.end}`;
+                                    // Create a unique key for the start-end range AND leave type
+                                    const props = leave.extendedProps || {};
+                                    const leaveType = (props.leaveType || 'casual').toLowerCase();
+                                    const key = `${leave.start}_${leave.end}_${leaveType}`;
 
                                     if (!groups[key]) {
                                         groups[key] = {
                                             start: leave.start,
                                             end: leave.end,
+                                            type: leaveType,
+                                            color: leave.backgroundColor || '#3b82f6',
                                             users: []
                                         };
                                     }
 
                                     // Add user details to the group
-                                    const props = leave.extendedProps || {};
                                     groups[key].users.push({
                                         name: props.userName || 'Unknown User',
                                         email: props.userEmail || '',
                                         workType: props.userWorkType || 'onsite',
                                         type: props.leaveType || 'LEAVE',
                                         color: leave.backgroundColor || '#3b82f6',
-                                        title: props.title || 'No Title', // Include Title
+                                        title: props.title || 'No Title',
                                         reason: props.reason || '',
                                         status: props.status || 'unknown',
                                         dateRange: props.displayDateRange || 'Date not available'
@@ -205,35 +214,55 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     });
             },
 
-            // Custom rendering for the Event Bar content
             eventContent: function (arg) {
                 const props = arg.event.extendedProps;
                 const count = props.count || 0;
+                const users = props.users || [];
 
                 // Container
                 const container = document.createElement('div');
-                container.className = 'd-flex align-items-center w-100 h-100 px-1 overflow-hidden';
+                container.className = 'd-flex align-items-center w-100 h-100 px-1 py-1 overflow-hidden';
                 container.style.cursor = 'pointer';
                 container.style.backgroundColor = arg.event.backgroundColor;
-                container.style.borderRadius = '3px';
+                container.style.borderRadius = '4px';
+                container.style.minHeight = '34px';
 
                 // Left Badge "View (N)"
                 const badge = document.createElement('div');
-                badge.className = 'd-flex align-items-center justify-content-center text-white fw-bold px-2 rounded-1 me-2';
-                badge.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
-                badge.style.height = '20px';
-                badge.style.fontSize = '0.70rem';
+                badge.className = 'd-flex align-items-center justify-content-center text-white fw-bold px-1 rounded-1 me-1';
+                badge.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                badge.style.height = '18px';
+                badge.style.fontSize = '0.6rem';
                 badge.style.minWidth = 'fit-content';
-                badge.innerText = `View (${count})`;
+                badge.innerText = `View(${count})`;
 
-                // Right Text (User Count)
-                const text = document.createElement('div');
-                text.className = 'text-white fw-medium text-truncate';
-                text.style.fontSize = '0.8rem';
-                text.innerText = `${count} Users`;
+                // Right Text Container (Vertical Stack)
+                const textContainer = document.createElement('div');
+                textContainer.className = 'd-flex flex-column justify-content-center overflow-hidden flex-grow-1';
+                textContainer.style.lineHeight = '1.1';
+
+                // Aggregate Names and Reasons
+                const names = users.map(u => (u.name || 'User').split(' ')[0]).join(', ');
+                const reasons = users.map(u => u.reason || u.title || 'Leave').join(', ');
+
+                // Name Line
+                const nameLine = document.createElement('div');
+                nameLine.className = 'text-white fw-bold text-truncate';
+                nameLine.style.fontSize = '0.7rem';
+                nameLine.innerText = names;
+
+                // Reason Line
+                const reasonLine = document.createElement('div');
+                reasonLine.className = 'text-white text-truncate';
+                reasonLine.style.fontSize = '0.65rem';
+                reasonLine.style.opacity = '0.9';
+                reasonLine.innerText = reasons;
+
+                textContainer.appendChild(nameLine);
+                textContainer.appendChild(reasonLine);
 
                 container.appendChild(badge);
-                container.appendChild(text);
+                container.appendChild(textContainer);
 
                 return { domNodes: [container] };
             },
@@ -524,11 +553,11 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     // Helper function for leave color
     $scope.getLeaveColor = function (type) {
         switch (type ? type.toLowerCase() : "") {
-            case "casual": return "#0d6efd"; // Blue
-            case "sick": return "#dc3545";   // Red
-            case "vacation": return "#198754"; // Green
-            case "personal": return "#fd7e14"; // Orange
-            default: return "#3b82f6";       // Default Blue
+            case "casual": return "rgba(13, 110, 253, 0.4)"; // Blue
+            case "sick": return "rgba(220, 53, 69, 0.4)";   // Red
+            case "vacation": return "rgba(25, 135, 84, 0.4)"; // Green
+            case "personal": return "rgba(253, 126, 20, 0.4)"; // Orange
+            default: return "rgba(59, 130, 246, 0.4)";       // Default Blue
         }
     };
 

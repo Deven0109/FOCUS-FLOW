@@ -181,6 +181,28 @@
                                 <input type="time" class="form-control" ng-model="manualEntry.endTime">
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Add Tasks</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" ng-model="manualEntry.currentTaskInput"
+                                    placeholder="Enter task description"
+                                    ng-keypress="($event.which === 13)?addTask():0">
+                                <button class="btn btn-outline-secondary" type="button" ng-click="addTask()">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="list-group list-group-flush border rounded"
+                                ng-if="manualEntry.tasks.length > 0">
+                                <div class="list-group-item d-flex justify-content-between align-items-center py-2"
+                                    ng-repeat="task in manualEntry.tasks track by $index">
+                                    <span class="text-truncate">{{task}}</span>
+                                    <button type="button" class="btn btn-link text-danger p-0 ms-2"
+                                        ng-click="removeTask($index)">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer bg-light p-3">
                         <button type="button" class="btn btn-link link-secondary me-auto"

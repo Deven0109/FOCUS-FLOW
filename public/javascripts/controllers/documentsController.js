@@ -7,15 +7,16 @@ app.controller('DocumentsController', function ($scope, HttpService, $http, $win
   $scope.userWorkType = null;
   $scope.uploadForm = { title: '', description: '', category: 'SOP', workType: 'onsite', file: null };
   $scope.categories = [{ value: 'SOP', label: 'SOP' }, { value: 'Others', label: 'Others' }];
-  $scope.workTypes = [{ value: 'onsite', label: 'Onsite' }];
+  $scope.workTypes = [{ value: 'onsite', label: 'Onsite' }, { value: 'remote', label: 'Remote' }];
 
   $scope.loadProfile = function () {
     const user = HttpService.getUserData();
     if (user) {
-      $scope.isAdmin = ['superAdmin', 'hr', 'admin'].includes(user.role);
+      const role = (user.role || '').toLowerCase();
+      $scope.isAdmin = ['superadmin', 'hr', 'admin', 'human resource'].includes(role);
       $scope.userWorkType = user.workType || null;
       // Documents section bypass for administrative roles
-      if ($scope.userWorkType === 'remote' && !['superAdmin', 'hr', 'admin'].includes(user.role)) {
+      if ($scope.userWorkType === 'remote' && !$scope.isAdmin) {
         $window.location.href = '/app/dashboard';
         return;
       }

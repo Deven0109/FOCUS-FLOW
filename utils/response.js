@@ -17,6 +17,7 @@ exports.badRequest = (message, response) => {
 
 exports.success = (message, data, response) => {
     return response.status(codes.success).json({
+        success: true,
         message: message || "Executed successfully!",
         data: data,
         status: codes.success,

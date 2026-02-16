@@ -129,13 +129,15 @@
                     <td class="text-center">
                       <span ng-click="checkPermission('canEdit', user.role) && toggleAccountStatus($index)"
                         class="badge bg-{{user.isActive ? 'success' : 'danger' }} text-white"
-                        ng-style="checkPermission('canEdit', user.role) ? {'cursor': 'pointer'} : {'cursor': 'not-allowed', 'opacity': '0.6'}">
+                        ng-class="{'cursor-pointer': checkPermission('canEdit', user.role)}"
+                        ng-style="!checkPermission('canEdit', user.role) && {'cursor': 'not-allowed', 'opacity': '0.5'}">
                         {{user.isActive ? 'Active' : 'Inactive'}}
                       </span>
                     </td>
                     <td class="text-center">
                       <button class="btn btn-sm btn-outline-info btn-action" type="button" title="Edit"
-                        ng-click="editUser(user)" ng-if="checkPermission('canEdit', user.role)">
+                        ng-click="checkPermission('canEdit', user.role) && editUser(user)"
+                        ng-disabled="!checkPermission('canEdit', user.role)">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                           class="icon icon-tabler icons-tabler-outline icon-tabler-edit">
@@ -147,7 +149,8 @@
                       </button>
 
                       <button class="btn btn-sm btn-outline-danger btn-action ms-1" type="button" title="Delete"
-                        ng-click="deleteUserAccount($index)" ng-if="checkPermission('canDelete', user.role)">
+                        ng-click="checkPermission('canDelete', user.role) && deleteUserAccount($index)"
+                        ng-disabled="!checkPermission('canDelete', user.role)">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                           class="icon icon-tabler icons-tabler-outline icon-tabler-trash">
@@ -159,8 +162,6 @@
                           <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
                         </svg>
                       </button>
-                      <span ng-if="!checkPermission('canEdit', user.role) && !checkPermission('canDelete', user.role)"
-                        class="text-muted" style="font-size: 10px;">No Actions</span>
                     </td>
                   </tr>
                   <tr ng-if="users.length == 0">

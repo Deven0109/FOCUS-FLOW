@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const models = require('./../../models/zindex');
 const response = require('./../../utils/response');
 const moment = require('moment-timezone');
+const { createNotification } = require('../../utils/notificationHelper');
 
 /**
  * Get notices - HR sees all, Developers see filtered by workType
@@ -78,6 +79,20 @@ exports.createNotice = asyncHandler(async (req, res) => {
         workTypeFilter: workTypeFilter || 'all',
         targetEmployees: employeeIds,
         createdBy: req.userId
+    });
+
+    await notice.save();
+
+    // Send Notification
+    await createNotification({
+        title: "New HR Notice",
+        message: `Please check the new announcement: ${title}`,
+        type: "NOTICE",
+        receivers: employeeIds.length > 0 ? employeeIds : null,
+        workType: employeeIds.length > 0 ? null : (workTypeFilter || "all"),
+        module: "notice-board",
+        referenceId: notice._id,
+        sender: req.userId
     });
 
     return response.success("Notice created successfully", notice, res);

@@ -41,106 +41,148 @@
             <p class="empty-subtitle text-muted">Click Add Notice to create your first notice</p>
         </div>
 
-        <!-- Notices Table -->
-        <div ng-if="notices.length > 0" class="card">
-            <div class="table-responsive">
-                <table class="table table-vcenter card-table table-hover">
-                    <thead>
-                        <tr>
-                            <th style="width: 80px;">Sr. No</th>
-                            <th>Notice Name</th>
-                            <th style="width: 120px;">Date</th>
-                            <th style="width: 200px;">Targeted To</th>
-                            <th style="width: 180px;">File Name</th>
-                            <th class="text-center" style="width: 240px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr ng-repeat="notice in notices track by notice._id">
-                            <td class="fw-bold fs-5 text-dark">{{$index + 1}}</td>
-                            <td>
-                                <div class="fw-bold fs-4 text-dark">{{notice.title}}</div>
-                                <div class="text-muted fs-5 text-truncate" style="max-width: 400px;">
-                                    {{notice.content}}
-                                </div>
-                            </td>
-                            <td class="fw-bold fs-4" style="color: #000 !important;">
-                                {{notice.createdAt | date:'dd/MM/yyyy'}}
-                            </td>
-                            <td>
-                                <div ng-if="notice.targetEmployees && notice.targetEmployees.length > 0"
-                                    class="fw-bold fs-4" style="color: #000 !important;">
-                                    <span ng-repeat="emp in notice.targetEmployees">
-                                        {{emp.name}}<span ng-if="!$last">, </span>
+        <!-- Professional Notices Card Grid -->
+        <div ng-if="notices.length > 0" class="row row-deck row-cards">
+            <div class="col-md-6 col-lg-4" ng-repeat="notice in getPaginatedNotices() track by notice._id">
+                <div class="card card-sm shadow-sm border-0 h-100 transition-all hover-shadow-lg"
+                    style="border-radius: 12px; transition: all 0.3s ease;">
+                    <div class="card-body d-flex flex-column p-3">
+                        <!-- Top Row: Date and Badge -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted fw-medium" style="font-size: 0.75rem; letter-spacing: 0.02em;">
+                                <i class="fa-regular fa-calendar-check me-1"></i>
+                                {{notice.createdAt | date:'dd MMM yyyy'}}
+                            </span>
+                            <span class="badge rounded-pill px-2 py-1" ng-class="{
+                                'bg-blue-lt': notice.workTypeFilter === 'all',
+                                'bg-green-lt': notice.workTypeFilter === 'onsite',
+                                'bg-orange-lt': notice.workTypeFilter === 'remote'
+                            }" style="font-size: 0.65rem; font-weight: 700;">
+                                {{notice.workTypeFilter | uppercase}}
+                            </span>
+                        </div>
+
+                        <!-- Title -->
+                        <h3 class="card-title fw-bold mb-1 text-dark"
+                            style="font-size: 1.1rem; line-height: 1.3; color: #1e293b !important;">
+                            {{notice.title}}
+                        </h3>
+
+                        <!-- Author Info (Subtle) -->
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="avatar avatar-xs rounded-circle me-2 bg-primary-lt fw-bold"
+                                style="font-size: 0.6rem; width: 20px; height: 20px;">
+                                {{notice.createdBy.name.charAt(0)}}
+                            </div>
+                            <span class="text-muted" style="font-size: 0.75rem;">By {{notice.createdBy.name}}</span>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="flex-grow-1">
+                            <p class="text-secondary mb-2"
+                                style="font-size: 0.9rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: #475569 !important;">
+                                {{notice.content}}
+                            </p>
+                        </div>
+
+                        <!-- Attachment and Target Metadata -->
+                        <div class="mt-2">
+                            <div class="d-flex flex-column align-items-start gap-2 w-100">
+                                <!-- Target Count -->
+                                <div class="d-flex align-items-center text-muted" title="Target Audience">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" class="me-1 opacity-50">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                    </svg>
+                                    <span style="font-size: 0.75rem;">
+                                        {{ (notice.targetEmployees && notice.targetEmployees.length > 0) ?
+                                        notice.targetEmployees.length : 'All Employees' }}
                                     </span>
                                 </div>
-                                <span ng-if="!notice.targetEmployees || notice.targetEmployees.length === 0"
-                                    class="fw-bold fs-4" style="color: #000 !important;">
-                                    All Employees
-                                </span>
-                            </td>
-                            <td>
-                                <div ng-if="notice.fileName">
+
+                                <!-- Clickable File Chip -->
+                                <div ng-if="notice.fileName" style="max-width: 100%;">
                                     <a ng-href="{{notice.fileUrl}}" target="_blank"
-                                        class="d-flex align-items-center text-decoration-none">
-                                        <!-- PDF Icon -->
-                                        <span ng-if="notice.fileType === 'pdf'" class="text-danger me-2">
-                                            <i class="fa-solid fa-file-pdf fa-lg"></i>
-                                        </span>
-                                        <!-- Image Icon -->
-                                        <span ng-if="notice.fileType === 'image'" class="text-primary me-2">
-                                            <i class="fa-solid fa-file-image fa-lg"></i>
-                                        </span>
-                                        <span class="text-dark fw-bold fs-5 text-truncate" style="max-width: 150px;"
-                                            title="{{notice.fileName}}">
-                                            {{notice.fileName}}
-                                        </span>
+                                        class="d-flex align-items-center px-2 py-1 bg-light rounded-2 border text-dark text-decoration-none transition-all hover-bg-primary-lt"
+                                        style="font-size: 0.7rem; white-space: normal; word-break: break-all; width: fit-content;"
+                                        title="Click to view {{notice.fileName}}">
+                                        <i class="fa-solid me-1"
+                                            ng-class="notice.fileType === 'pdf' ? 'fa-file-pdf text-danger' : 'fa-file-image text-primary'"></i>
+                                        <span>{{notice.fileName}}</span>
                                     </a>
                                 </div>
-                                <span ng-if="!notice.fileName" class="text-muted">No file</span>
-                            </td>
-                            <td class="text-center">
-                                <div class="d-flex gap-2 justify-content-center">
-                                    <!-- View Button (All roles) -->
-                                    <button class="btn btn-icon btn-primary shadow-sm" ng-click="viewNotice(notice)"
-                                        title="View Notice">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                    </button>
+                            </div>
+                        </div>
+                    </div>
 
-                                    <!-- Edit Button (HR Only) -->
-                                    <button ng-if="isHR" class="btn btn-icon btn-primary shadow-sm"
-                                        ng-click="editNotice(notice)" title="Edit Notice">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
-                                    </button>
+                    <!-- Refined Action Bar -->
+                    <div class="card-footer bg-transparent border-top-0 px-4 pb-4 pt-0 d-flex gap-2">
+                        <button
+                            class="btn btn-primary w-100 fw-bold shadow-none d-flex align-items-center justify-content-center"
+                            ng-click="viewNotice(notice)" style="border-radius: 8px; height: 38px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="me-2">
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            View
+                        </button>
 
-                                    <!-- Delete Button (HR Only) -->
-                                    <button ng-if="isHR" class="btn btn-icon btn-danger shadow-sm"
-                                        ng-click="deleteNotice(notice)" title="Delete Notice">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path
-                                                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                                            </path>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                        <div class="d-flex gap-2" ng-if="isHR">
+                            <button class="btn btn-icon btn-outline-light text-primary border shadow-none"
+                                ng-click="editNotice(notice)" title="Edit"
+                                style="border-radius: 8px; width: 38px; height: 38px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-outline-light text-danger border shadow-none"
+                                ng-click="deleteNotice(notice)" title="Delete"
+                                style="border-radius: 8px; width: 38px; height: 38px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M3 6h18"></path>
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="d-flex justify-content-center mt-4 mb-5" ng-if="getTotalPages() > 1">
+            <nav>
+                <ul class="pagination shadow-sm">
+                    <li class="page-item" ng-class="{'disabled': currentPage === 1}">
+                        <a class="page-link" href="javascript:void(0)" ng-click="setPage(currentPage - 1)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="icon">
+                                <path d="M15 6l-6 6l6 6"></path>
+                            </svg>
+                        </a>
+                    </li>
+                    <li class="page-item" ng-repeat="p in [].constructor(getTotalPages()) track by $index"
+                        ng-class="{'active': currentPage === $index + 1}">
+                        <a class="page-link" href="javascript:void(0)" ng-click="setPage($index + 1)">{{$index + 1}}</a>
+                    </li>
+                    <li class="page-item" ng-class="{'disabled': currentPage === getTotalPages()}">
+                        <a class="page-link" href="javascript:void(0)" ng-click="setPage(currentPage + 1)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" class="icon">
+                                <path d="M9 6l6 6l-6 6"></path>
+                            </svg>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
 
@@ -419,15 +461,16 @@
                         <label class="text-secondary fw-bold text-uppercase small mb-2">Attachment</label>
                         <div>
                             <a ng-href="{{viewData.fileUrl}}" download="{{viewData.fileName}}" target="_blank"
-                                class="btn btn-outline-primary shadow-sm">
+                                class="btn btn-outline-primary shadow-sm h-auto text-start d-flex align-items-center"
+                                style="white-space: normal; word-break: break-word;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="me-2">
+                                    stroke-linejoin="round" class="me-2 flex-shrink-0">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                     <polyline points="7 10 12 15 17 10"></polyline>
                                     <line x1="12" y1="15" x2="12" y2="3"></line>
                                 </svg>
-                                Download {{viewData.fileName || viewData.fileType | uppercase}}
+                                <span>Download {{viewData.fileName || viewData.fileType | uppercase}}</span>
                             </a>
                         </div>
                     </div>

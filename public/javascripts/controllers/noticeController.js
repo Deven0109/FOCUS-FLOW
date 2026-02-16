@@ -7,6 +7,24 @@ app.controller('NoticeController', ['$scope', '$http', '$window', 'HttpService',
     $scope.employees = [];
     $scope.selectedEmployees = [];
 
+    // Pagination
+    $scope.currentPage = 1;
+    $scope.itemsPerPage = 9;
+
+    $scope.getPaginatedNotices = function () {
+        const start = ($scope.currentPage - 1) * $scope.itemsPerPage;
+        return $scope.notices.slice(start, start + $scope.itemsPerPage);
+    };
+
+    $scope.getTotalPages = function () {
+        return Math.ceil($scope.notices.length / $scope.itemsPerPage);
+    };
+
+    $scope.setPage = function (page) {
+        if (page < 1 || page > $scope.getTotalPages()) return;
+        $scope.currentPage = page;
+    };
+
     // Initialize
     $scope.init = function () {
         console.log('=== Notice Controller Init ===');
@@ -14,17 +32,10 @@ app.controller('NoticeController', ['$scope', '$http', '$window', 'HttpService',
         console.log('User data:', user);
 
         if (user) {
-            $scope.isHR = user.role === 'hr';
+            $scope.isHR = ['hr', 'admin', 'superAdmin'].includes(user.role);
             $scope.userWorkType = user.workType || 'onsite';
-            console.log('Is HR:', $scope.isHR);
+            console.log('Is Notice Admin (isHR):', $scope.isHR);
             console.log('User Work Type:', $scope.userWorkType);
-
-            // Block Admin and Super Admin
-            if (['admin', 'superAdmin'].includes(user.role)) {
-                console.log('Admin/SuperAdmin detected, redirecting...');
-                $window.location.href = '/app/dashboard';
-                return;
-            }
         }
         $scope.loadNotices();
     };

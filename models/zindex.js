@@ -6,4 +6,5 @@ module.exports = {
     Tasks: require('./tasks'),
     User: require('./users'),
     Notice: require('./notice'),
+    Notification: require('./notification')
 }
