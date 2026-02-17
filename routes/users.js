@@ -76,7 +76,10 @@ router.post("/notice/view", authMiddleware, hrOrDeveloperCheck, noticeCtrl.viewN
 router.post("/notice/employees", authMiddleware, hrOnlyCheck, noticeCtrl.getEmployeesByWorkType);
 
 // Calendar/Leave API routes (mounted at /api in app.js)
+// Calendar/Leave API routes (mounted at /api in app.js) -- verify prefix logic in app.js
 router.get("/leaves", authMiddleware, leaveCtrl.getAllLeaves);
+router.get("/leaves/pending", authMiddleware, adminCheck, leaveCtrl.getPendingLeaves); // New: HR Dashboard
+router.put("/leaves/status", authMiddleware, adminCheck, leaveCtrl.updateLeaveStatus); // New: Approve/Reject
 router.post("/leaves", authMiddleware, leaveCtrl.createLeave);
 router.get("/leaves/me", authMiddleware, leaveCtrl.getUserLeaves);
 router.delete("/leaves/:id", authMiddleware, leaveCtrl.deleteLeave);

@@ -728,14 +728,18 @@ exports.markManualAttendance = asyncHandler(async (req, res) => {
         const startOfDay = moment.tz(date, timezone).startOf('day').toDate();
         const endOfDay = moment.tz(date, timezone).endOf('day').toDate();
 
-        const startDateTime = moment.tz(`${date} ${startTime}`, 'YYYY-MM-DD HH:mm', timezone).toDate();
-        const endDateTime = endTime ? moment.tz(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm', timezone).toDate() : null;
+        const startDateTime = moment.tz(date + ' ' + startTime, 'YYYY-MM-DD HH:mm', timezone).toDate();
+        const endDateTime = endTime ? moment.tz(date + ' ' + endTime, 'YYYY-MM-DD HH:mm', timezone).toDate() : null;
 
         let record = await models.DailyStatus.findOne({
             user: userId,
             date: { $gte: startOfDay, $lte: endOfDay }
         });
 
+        // Prepare tasks
+        // Logic: 
+        // 1. If 'tasks' array exists and has items, us them.
+        // 2. If 'tasks' is empty, add default "Manually marked attendance".
         let tasksToInsert = [];
 
         if (tasks && Array.isArray(tasks) && tasks.length > 0) {
@@ -753,9 +757,12 @@ exports.markManualAttendance = asyncHandler(async (req, res) => {
                 countView: "00:00:00",
                 totalSeconds: 0,
                 estimatedTime: { hour: "0", minutes: "15" },
-                carriedOver: false
+                carriedOver: false,
+                createdAt: new Date(),
+                updatedAt: new Date()
             }));
         } else {
+            // Default task if none provided
             tasksToInsert.push({
                 _id: new mongoose.Types.ObjectId(),
                 task: "Manually marked attendance",
@@ -770,16 +777,27 @@ exports.markManualAttendance = asyncHandler(async (req, res) => {
                 countView: "00:00:00",
                 totalSeconds: 0,
                 estimatedTime: { hour: "0", minutes: "15" },
-                carriedOver: false
+                carriedOver: false,
+                createdAt: new Date(),
+                updatedAt: new Date()
             });
         }
 
         if (record) {
+            // Update existing record
             record.startTime = startDateTime;
             if (endDateTime) record.endTime = endDateTime;
-            record.tasks.push(...tasksToInsert);
+
+            // Append new tasks to existing tasks
+            if (record.tasks && Array.isArray(record.tasks)) {
+                record.tasks.push(...tasksToInsert);
+            } else {
+                record.tasks = tasksToInsert;
+            }
+
             await record.save();
         } else {
+            // Create new record
             await models.DailyStatus.create({
                 user: userId,
                 date: startOfDay,

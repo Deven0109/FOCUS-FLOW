@@ -18,7 +18,7 @@ const notificationSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ["WORK_UPLOAD", "NOTICE", "LEAVE_REQUEST"],
+        enum: ["WORK_UPLOAD", "NOTICE", "LEAVE_REQUEST", "LEAVE_APPROVED", "LEAVE_REJECTED"],
         required: true
     },
     sender: {

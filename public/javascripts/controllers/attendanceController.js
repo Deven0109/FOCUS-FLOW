@@ -86,6 +86,7 @@ app.controller("AttendanceController", ($scope, HttpService, SweetAlertService) 
 
     $scope.openManualModal = function () {
         $scope.manualEntry = {
+            workType: 'onsite', // Default to onsite
             userId: '',
             date: new Date(),
             startTime: null,
@@ -102,6 +103,12 @@ app.controller("AttendanceController", ($scope, HttpService, SweetAlertService) 
         }
 
         $scope.isSaving = true;
+
+        // Check if there's a typed task that hasn't been added to the list yet
+        if ($scope.manualEntry.currentTaskInput && $scope.manualEntry.currentTaskInput.trim() !== '') {
+            $scope.manualEntry.tasks.push($scope.manualEntry.currentTaskInput.trim());
+            $scope.manualEntry.currentTaskInput = ''; // Clear input
+        }
 
         const payload = {
             userId: $scope.manualEntry.userId,

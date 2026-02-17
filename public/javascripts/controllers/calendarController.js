@@ -10,9 +10,83 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     };
     $scope.myLeaves = [];
     $scope.calendarLoading = true;
-    $scope.selectedWorkType = 'all'; // Default to show all
+    $scope.filters = {
+        workType: 'all' // Default
+    };
     $scope.today = new Date();
     $scope.today.setHours(0, 0, 0, 0); // Normalize to start of day
+    $scope.isAdmin = false;
+    $scope.userWorkType = 'onsite';
+
+    // --- HR / ADMIN FUNCTIONS ---
+    $scope.pendingLeaves = [];
+
+    // Fetch Pending Leaves (HR Dashboard)
+    $scope.getPendingLeaves = function () {
+        if (!$scope.isAdmin) return;
+
+        HttpService.get('/api/leaves/pending')
+            .then(function (response) {
+                if (response && response.data && Array.isArray(response.data)) {
+                    $scope.pendingLeaves = response.data;
+                } else if (Array.isArray(response)) {
+                    $scope.pendingLeaves = response;
+                } else {
+                    $scope.pendingLeaves = [];
+                }
+            })
+            .catch(function (error) {
+                console.error('Error fetching pending leaves:', error);
+            });
+    };
+
+    // Update Leave Status (Approve/Reject)
+    $scope.updateLeaveStatus = function (leaveId, status) {
+        const actionText = status === 'approved' ? 'Approve' : 'Cancel';
+
+        Swal.fire({
+            title: `${actionText} Leave?`,
+            text: `Are you sure you want to ${actionText.toLowerCase()} this leave request?`,
+            icon: status === 'approved' ? 'success' : 'warning',
+            showCancelButton: true,
+            confirmButtonColor: status === 'approved' ? '#198754' : '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: `Yes, ${actionText} it!`
+        }).then((result) => {
+            if (result.isConfirmed) {
+                HttpService.put('/api/leaves/status', { leaveId: leaveId, status: status })
+                    .then(function (response) {
+                        toastr.success(`Leave request ${status} successfully`);
+                        $scope.getPendingLeaves(); // Refresh pending list
+                        if (calendar) {
+                            calendar.refetchEvents(); // Refresh calendar
+                        }
+                    })
+                    .catch(function (error) {
+                        const msg = error.data && error.data.message ? error.data.message : 'Error updating status';
+                        toastr.error(msg);
+                    });
+            }
+        });
+    };
+
+    // Load User Profile to determine role and work type
+    const loadUserProfile = function () {
+        const user = JSON.parse(localStorage.getItem('user')) || {}; // Fallback if HttpService not ready, but relying on localStorage
+        if (user) {
+            const role = (user.role || '').toLowerCase();
+            $scope.isAdmin = ['superadmin', 'hr', 'admin', 'human resource'].includes(role);
+            $scope.userWorkType = (user.workType || 'onsite').toLowerCase();
+
+            // If not admin, force filters.workType to user's work type
+            if (!$scope.isAdmin) {
+                $scope.filters.workType = $scope.userWorkType;
+            } else {
+                $scope.getPendingLeaves();
+            }
+        }
+    };
+    loadUserProfile();
 
     // Helper to refresh my leave dates for validation
     $scope.syncMyLeaveDates = function () {
@@ -120,7 +194,10 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             // Load events from server
             events: function (info, successCallback, failureCallback) {
                 console.log('--- START events function ---');
-                const url = `/api/leaves?workType=${$scope.selectedWorkType || 'all'}`;
+                // Use filters.workType directly. Backend handles 'undefined'/'null' strings now.
+                const url = `/api/leaves?workType=${$scope.filters.workType}`;
+                console.log('Fetching leaves from:', url);
+
                 HttpService.get(url)
                     .then(function (response) {
                         try {
@@ -390,6 +467,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
     // Submit leave request
     $scope.submitLeave = function () {
+        if ($scope.isSubmitting) return;
+
         // Validation
         if (!$scope.leaveForm.fromDate || (!$scope.leaveForm.toDate && $scope.leaveForm.duration === 'multiple') || !$scope.leaveForm.reason || !$scope.leaveForm.title) {
             toastr.error('Please fill all required fields');
@@ -406,6 +485,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             return;
         }
 
+        $scope.isSubmitting = true;
+
         const leaveData = {
             fromDate: $scope.leaveForm.fromDate,
             toDate: $scope.leaveForm.toDate,
@@ -416,8 +497,11 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
         HttpService.post('/api/leaves', leaveData)
             .then(function (response) {
-                if (response && response.leave) {
-                    toastr.success('Leave request submitted successfully');
+                // Fix: Handle axios response wrapper. Data is in response.data
+                const data = response.data || response;
+
+                if (data && data.leave) {
+                    toastr.success('Leave request submitted successfully. Waiting for approval.');
 
                     // Reload calendar to refresh aggregated events
                     if (calendar) {
@@ -451,7 +535,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                         title: ''
                     };
                 } else {
-                    const errorMsg = response && response.message ? response.message : 'Error submitting leave request';
+                    const errorMsg = data && data.message ? data.message : 'Error submitting leave request';
                     toastr.error(errorMsg);
                 }
             })
@@ -464,6 +548,9 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     errorMsg = error.message;
                 }
                 toastr.error(errorMsg);
+            })
+            .finally(function () {
+                $scope.isSubmitting = false;
             });
     };
 

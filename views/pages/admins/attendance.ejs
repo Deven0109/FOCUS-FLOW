@@ -159,11 +159,19 @@
                 <form ng-submit="submitManualEntry()">
                     <div class="modal-body p-4">
                         <div class="mb-3">
+                            <label class="form-label fw-bold small">Work Type</label>
+                            <select class="form-select" ng-model="manualEntry.workType"
+                                ng-change="manualEntry.userId = ''">
+                                <option value="onsite">Onsite</option>
+                                <option value="remote">Remote</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label fw-bold small">Select Employee</label>
                             <select class="form-select" ng-model="manualEntry.userId" required>
                                 <option value="">Choose an employee...</option>
                                 <option value="{{user._id}}"
-                                    ng-repeat="user in allUsers | filter:{workType: filters.workType}">{{user.name}}
+                                    ng-repeat="user in allUsers | filter:{workType: manualEntry.workType}">{{user.name}}
                                 </option>
                             </select>
                         </div>
