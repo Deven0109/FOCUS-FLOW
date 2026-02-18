@@ -81,7 +81,7 @@
               </div>
               <div class="card-footer text-center py-2"
                 ng-if="notifications.length > 0 && notificationPage < totalPages">
-                <a href="javascript:void(0)" class="small" ng-click="loadNotifications(true)">View More</a>
+                <a href="javascript:void(0)" class="small" ng-click="$event.stopPropagation(); loadNotifications(true)">View More</a>
               </div>
             </div>
           </div>

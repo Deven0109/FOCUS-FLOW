@@ -8,7 +8,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
         reason: '',
         title: ''
     };
-    $scope.myLeaves = [];
+    $scope.allMyLeaves = []; // For validation (contains all future leaves)
+    $scope.displayedMyLeaves = []; // For display (paginated)
     $scope.calendarLoading = true;
     $scope.filters = {
         workType: 'all' // Default
@@ -17,6 +18,12 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     $scope.today.setHours(0, 0, 0, 0); // Normalize to start of day
     $scope.isAdmin = false;
     $scope.userWorkType = 'onsite';
+
+    // Pagination for My Leaves
+    $scope.myLeavesPage = 1;
+    $scope.myLeavesLimit = 10;
+    $scope.myLeavesTotalPages = 1;
+    $scope.myLeavesTotalCount = 0;
 
     // --- HR / ADMIN FUNCTIONS ---
     $scope.pendingLeaves = [];
@@ -88,27 +95,32 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     };
     loadUserProfile();
 
-    // Helper to refresh my leave dates for validation
+    // Helper to refresh all my leave dates for validation
     $scope.syncMyLeaveDates = function () {
-        HttpService.get('/api/leaves/me')
+        // Fetch ALL leaves for validation (limit=1000)
+        HttpService.get('/api/leaves/me', { params: { limit: 1000, page: 1 } })
             .then(function (response) {
                 let data = [];
-                // Check if response is the array (unwrapped) or wrapped in .data
-                if (Array.isArray(response)) {
+                // Handle new backend response structure { leaves: [], ... }
+                if (response && response.data && Array.isArray(response.data.leaves)) {
+                    data = response.data.leaves;
+                } else if (response && response.leaves && Array.isArray(response.leaves)) {
+                    data = response.leaves;
+                } else if (Array.isArray(response)) {
                     data = response;
                 } else if (response && Array.isArray(response.data)) {
                     data = response.data;
                 }
 
                 if (data) {
-                    $scope.myLeaves = data;
+                    $scope.allMyLeaves = data; // Store in allMyLeaves for validation
                     console.log('Syncing user leaves for validation...', data.length);
                 }
             })
             .catch(function (err) { console.error('Error syncing my leaves', err); });
     };
 
-    // Load initial user leaves
+    // Load initial user leaves for validation
     $scope.syncMyLeaveDates();
 
     // Initialize FullCalendar
@@ -135,21 +147,19 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
             // Date click handler - open leave form
             dateClick: function (info) {
-                // Robust check against myLeaves using STRING comparison to avoid Timezone issues
+                // Robust check against allMyLeaves using STRING comparison to avoid Timezone issues
                 const clickedDateStr = info.dateStr; // "YYYY-MM-DD"
                 console.log('--- DATE CLICK CHECK ---');
                 console.log('Clicked Date:', clickedDateStr);
 
-                const isBlocked = $scope.myLeaves.some(leave => {
+                // Use allMyLeaves for validation
+                const isBlocked = $scope.allMyLeaves.some(leave => {
                     if (leave.status === 'rejected') return false;
 
                     // Parse dates carefully
-                    // Ensure we are working with just the date part YYYY-MM-DD
                     const startRaw = new Date(leave.fromDate);
                     const endRaw = new Date(leave.toDate);
 
-                    // Use toLocaleDateString('en-CA') to get YYYY-MM-DD in local time
-                    // This handles timezone offsets correctly without manual parsing
                     const startStr = startRaw.toLocaleDateString('en-CA');
                     const endStr = endRaw.toLocaleDateString('en-CA');
 
@@ -173,6 +183,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     $scope.leaveForm.duration = 'single'; // Default to single day
                     $scope.leaveForm.reason = '';
                     $scope.leaveForm.leaveType = 'casual';
+                    $scope.leaveForm.title = '';
 
                     // Try to show modal using Bootstrap 5 JS
                     try {
@@ -379,15 +390,6 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 // Populate Modal Header with Range
                 const dateEl = document.getElementById('viewLeaveDate');
                 if (dateEl && props.users.length > 0) {
-                    // Use the title of the first leave if available, otherwise date range
-                    // User asked "view show leave for title show".
-                    // We will prioritize Title. If multiple users/titles, maybe showing distinct text is weird.
-                    // But for a single user (most commmon), showing title is good.
-                    // If aggregated, showing "Leaves for [Date]" is safer, and title in list.
-                    // Let's stick to the Date Range in Header (as per previous success) and emphasize Title in the list.
-                    // Wait, user said "view show leave for title show".
-
-                    // Let's try: "Leaves for [Title]" (if 1 user) or "Leaves for [Date Range]" (if >1)
                     if (props.users.length === 1 && props.users[0].title) {
                         dateEl.textContent = props.users[0].title;
                     } else {
@@ -554,37 +556,60 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             });
     };
 
-    // Show my leaves
-    $scope.showMyLeaves = function () {
-        HttpService.get('/api/leaves/me')
-            .then(function (response) {
-                let data = null;
-                // Handle unwrapped or wrapped response
-                if (Array.isArray(response)) {
-                    data = response;
-                } else if (response && Array.isArray(response.data)) {
-                    data = response.data;
-                }
+    // Load My Leaves with Pagination variables
+    $scope.loadMyLeavesPage = function (page) {
+        $scope.myLeavesPage = page;
 
-                if (data) {
-                    $scope.today = new Date();
-                    $scope.today.setHours(0, 0, 0, 0);
-                    $scope.myLeaves = data;
-                    const modalEl = document.getElementById('myLeavesModal');
-                    if (typeof bootstrap !== 'undefined') {
-                        new bootstrap.Modal(modalEl).show();
-                    } else {
-                        $(modalEl).modal('show');
-                    }
-                } else {
-                    console.error('Invalid my leaves response:', response);
-                    toastr.error('Error loading your leaves');
+        HttpService.get('/api/leaves/me', { params: { page: page, limit: $scope.myLeavesLimit } })
+            .then(function (response) {
+                // Check response format
+                // Backend returns { leaves: [], totalLeaves: X, totalPages: Y, currentPage: Z }
+                // Angular http response wrapped in .data, then .data again (depending on interceptor)
+                const payload = response.data || response;
+
+                if (payload && payload.leaves) {
+                    $scope.displayedMyLeaves = payload.leaves;
+                    $scope.myLeavesTotalPages = payload.totalPages || 1;
+                    $scope.myLeavesTotalCount = payload.totalLeaves || 0;
+                    $scope.myLeavesPage = payload.currentPage || page;
+                } else if (Array.isArray(payload)) {
+                    // Fallback so it doesn't break if server behaves unexpectedly
+                    $scope.displayedMyLeaves = payload;
+                    $scope.myLeavesTotalPages = 1;
                 }
             })
             .catch(function (error) {
-                console.error('Error loading user leaves:', error);
-                toastr.error('Error loading your leaves');
+                console.error('Error loading my leaves page:', error);
+                toastr.error('Error loading leaves history');
             });
+    };
+
+    // Show my leaves Modal (open and load first page)
+    $scope.showMyLeaves = function () {
+        $scope.today = new Date();
+        $scope.today.setHours(0, 0, 0, 0);
+
+        // Load first page
+        $scope.loadMyLeavesPage(1);
+
+        const modalEl = document.getElementById('myLeavesModal');
+        if (typeof bootstrap !== 'undefined') {
+            new bootstrap.Modal(modalEl).show();
+        } else {
+            $(modalEl).modal('show');
+        }
+    };
+
+    $scope.prevMyLeavesPage = function () {
+        if ($scope.myLeavesPage > 1) {
+            $scope.loadMyLeavesPage($scope.myLeavesPage - 1);
+        }
+    };
+
+    $scope.nextMyLeavesPage = function () {
+        if ($scope.myLeavesPage < $scope.myLeavesTotalPages) {
+            $scope.loadMyLeavesPage($scope.myLeavesPage + 1);
+        }
     };
 
     // Delete leave
@@ -604,11 +629,24 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     .then(function (response) {
                         // Check for success in both wrapped and unwrapped response formats
                         if (response && (response.status === 200 || response.message === 'Leave deleted successfully')) {
-                            toastr.success('leave is sucessfully deleted');
-                            $scope.myLeaves = $scope.myLeaves.filter(l => l._id !== leaveId);
+                            toastr.success('Leave is successfully deleted');
+
+                            // Remove from displayed lists
+                            $scope.displayedMyLeaves = $scope.displayedMyLeaves.filter(l => l._id !== leaveId);
+                            $scope.allMyLeaves = $scope.allMyLeaves.filter(l => l._id !== leaveId);
+
+                            // Refresh calendar
                             if (calendar) {
                                 calendar.refetchEvents();
                             }
+
+                            // Reload page if empty
+                            if ($scope.displayedMyLeaves.length === 0 && $scope.myLeavesPage > 1) {
+                                $scope.loadMyLeavesPage($scope.myLeavesPage - 1);
+                            } else {
+                                $scope.loadMyLeavesPage($scope.myLeavesPage);
+                            }
+
                         } else {
                             const errorMsg = (response && response.data && response.data.message) || (response && response.message) || 'Error deleting leave';
                             toastr.error(errorMsg);
@@ -629,22 +667,22 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
         }
     };
 
-    // Helper for delete permission (Only future leaves)
+    // Helper for delete permission (Only future leaves or today)
     $scope.canDeleteLeave = function (fromDate) {
         if (!fromDate) return false;
         const leaveDate = new Date(fromDate);
         leaveDate.setHours(0, 0, 0, 0);
-        return leaveDate > $scope.today;
+        return leaveDate >= $scope.today;
     };
 
     // Helper function for leave color
     $scope.getLeaveColor = function (type) {
         switch (type ? type.toLowerCase() : "") {
-            case "casual": return "rgba(13, 110, 253, 0.4)"; // Blue
-            case "sick": return "rgba(220, 53, 69, 0.4)";   // Red
-            case "vacation": return "rgba(25, 135, 84, 0.4)"; // Green
-            case "personal": return "rgba(253, 126, 20, 0.4)"; // Orange
-            default: return "rgba(59, 130, 246, 0.4)";       // Default Blue
+            case "casual": return "rgba(13, 110, 253, 0.2)"; // Blue
+            case "sick": return "rgba(220, 53, 69, 0.2)";   // Red
+            case "vacation": return "rgba(25, 135, 84, 0.2)"; // Green
+            case "personal": return "rgba(253, 126, 20, 0.2)"; // Orange
+            default: return "rgba(59, 130, 246, 0.2)";       // Default Blue
         }
     };
 

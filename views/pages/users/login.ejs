@@ -15,27 +15,74 @@
   <script src="/javascripts/services/httpServices.js"></script>
   <script src="/javascripts/controllers/authController.js"></script>
   <style>
-    body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; background: #f1f5f9; }
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f1f5f9;
+    }
+
     .login-page .card {
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       box-shadow: none;
     }
+
     .login-page .form-control {
       border-radius: 6px;
       border: 1px solid #e2e8f0;
     }
+
     .login-page .form-control:focus {
       border-color: var(--tblr-primary);
       box-shadow: 0 0 0 2px rgba(var(--tblr-primary-rgb), 0.2);
     }
-    .login-page .btn-primary { border-radius: 6px; font-weight: 500; }
-    .footer-links a { color: #64748b; text-decoration: none; font-size: 13px; }
-    .footer-links a:hover { color: var(--tblr-primary); }
-    .login-brand { display: inline-flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-    .login-brand-icon { width: 56px; height: 56px; border-radius: 14px; background: var(--tblr-primary); color: #fff; display: flex; align-items: center; justify-content: center; }
-    .login-brand-name { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: #0f172a; }
-    .login-brand-tagline { font-size: 0.875rem; color: #64748b; font-weight: 400; margin-top: 0.25rem; }
+
+    .login-page .btn-primary {
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .footer-links a {
+      color: #64748b;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .footer-links a:hover {
+      color: var(--tblr-primary);
+    }
+
+    .login-brand {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .login-brand-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--tblr-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-brand-name {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+
+    .login-brand-tagline {
+      font-size: 0.875rem;
+      color: #64748b;
+      font-weight: 400;
+      margin-top: 0.25rem;
+    }
   </style>
 </head>
 
@@ -78,7 +125,8 @@
                 <input type="{{ showPassword ? 'text' : 'password' }}" class="form-control" autocomplete="new-password"
                   ng-model="form.password" placeholder="••••••••" required>
                 <span class="input-group-text">
-                  <span class="link-secondary" ng-click="showPassword=!showPassword" style="cursor: pointer;">{{ showPassword ? 'Hide' : 'Show' }}</span>
+                  <span class="link-secondary" ng-click="showPassword=!showPassword" style="cursor: pointer;">{{
+                    showPassword ? 'Hide' : 'Show' }}</span>
                 </span>
               </div>
             </div>

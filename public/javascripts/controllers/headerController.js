@@ -108,23 +108,18 @@ app.controller('HeaderController', ['$scope', 'HttpService', '$window', 'SweetAl
 
   $scope.deleteNotification = function (event, noti) {
     if (event) event.stopPropagation();
-    SweetAlertService.confirm("Delete Notification", "Are you sure you want to delete this notification?").then(function (result) {
-      if (result.isConfirmed) {
-        HttpService.delete(`/api/notifications/${noti._id}`).then(function (res) {
-          if (res && res.success) {
-            $timeout(function () {
-              const index = $scope.notifications.indexOf(noti);
-              if (index > -1) {
-                if (!noti.isRead) {
-                  $scope.unreadNotificationsCount = Math.max(0, $scope.unreadNotificationsCount - 1);
-                }
-                $scope.notifications.splice(index, 1);
-              }
-              // Optional: Refresh list if empty to pull from next page or update counts
-              if ($scope.notifications.length === 0) {
-                $scope.loadNotifications();
-              }
-            });
+    HttpService.delete(`/api/notifications/${noti._id}`).then(function (res) {
+      if (res && res.success) {
+        $timeout(function () {
+          const index = $scope.notifications.indexOf(noti);
+          if (index > -1) {
+            if (!noti.isRead) {
+              $scope.unreadNotificationsCount = Math.max(0, $scope.unreadNotificationsCount - 1);
+            }
+            $scope.notifications.splice(index, 1);
+          }
+          if ($scope.notifications.length === 0) {
+            $scope.loadNotifications();
           }
         });
       }

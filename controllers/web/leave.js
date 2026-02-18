@@ -313,12 +313,24 @@ exports.updateLeaveStatus = async (req, res) => {
 // Get current user's leaves
 exports.getUserLeaves = async (req, res) => {
     try {
-        const userId = req.userId; // Use req.userId attached by authMiddleware
+        const userId = req.userId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalLeaves = await Leave.countDocuments({ user: userId });
         const leaves = await Leave.find({ user: userId })
             .populate('user', 'name email workType')
-            .sort({ fromDate: -1 });
+            .sort({ fromDate: -1 })
+            .skip(skip)
+            .limit(limit);
 
-        res.status(200).json(leaves);
+        res.status(200).json({
+            leaves,
+            totalLeaves,
+            totalPages: Math.ceil(totalLeaves / limit),
+            currentPage: page
+        });
     } catch (error) {
         console.error('Error fetching user leaves:', error);
         res.status(500).json({ message: 'Error fetching user leaves', error: error.message });
@@ -349,10 +361,10 @@ exports.deleteLeave = async (req, res) => {
 // Helper function to get color based on leave type
 const getLeaveColor = (type) => {
     switch (type ? type.toLowerCase() : '') {
-        case 'casual': return 'rgba(13, 110, 253, 0.4)'; // Primary Blue (Transparent)
-        case 'sick': return 'rgba(220, 53, 69, 0.4)';   // Danger Red (Transparent)
-        case 'vacation': return 'rgba(25, 135, 84, 0.4)'; // Success Green (Transparent)
-        case 'personal': return 'rgba(253, 126, 20, 0.4)'; // Orange (Transparent)
-        default: return 'rgba(59, 130, 246, 0.4)';       // Default Blue (Transparent)
+        case 'casual': return 'rgba(13, 110, 253, 0.2)'; // Primary Blue (Transparent)
+        case 'sick': return 'rgba(220, 53, 69, 0.2)';   // Danger Red (Transparent)
+        case 'vacation': return 'rgba(25, 135, 84, 0.2)'; // Success Green (Transparent)
+        case 'personal': return 'rgba(253, 126, 20, 0.2)'; // Orange (Transparent)
+        default: return 'rgba(59, 130, 246, 0.2)';       // Default Blue (Transparent)
     }
 };
