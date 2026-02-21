@@ -13,6 +13,7 @@ const notificationCtrl = require('./../controllers/web/notification');
 const { authMiddleware, adminCheck, hrOnlyCheck, hrOrDeveloperCheck } = require('./../middleware/auth_middleware');
 const { checkRBAC } = require('./../middleware/rbacMiddleware');
 const uploader = require('./../utils/aws_upload').uploadToAWS;
+const teamLeaveStatsCtrl = require('./../controllers/web/team_leave_stats');
 const uploadDocumentsLocal = require('./../utils/aws_upload').uploadDocumentsLocal;
 const { uploadNoticeFile } = require('./../utils/notice_upload');
 
@@ -77,7 +78,10 @@ router.post("/notice/employees", authMiddleware, hrOnlyCheck, noticeCtrl.getEmpl
 
 // Calendar/Leave API routes (mounted at /api in app.js)
 // Calendar/Leave API routes (mounted at /api in app.js) -- verify prefix logic in app.js
+router.get("/leaves/summary", authMiddleware, leaveCtrl.getLeaveSummary);
 router.get("/leaves", authMiddleware, leaveCtrl.getAllLeaves);
+router.post("/leaves/analytics", authMiddleware, leaveCtrl.getLeaveAnalytics); // Dashboard Analytics
+router.get("/leaves/team-stats", authMiddleware, adminCheck, teamLeaveStatsCtrl.getTeamLeaveStats); // New: Team Stats
 router.get("/leaves/pending", authMiddleware, adminCheck, leaveCtrl.getPendingLeaves); // New: HR Dashboard
 router.put("/leaves/status", authMiddleware, adminCheck, leaveCtrl.updateLeaveStatus); // New: Approve/Reject
 router.post("/leaves", authMiddleware, leaveCtrl.createLeave);

@@ -137,25 +137,81 @@
                 <h1 class="page-title mb-1">Leave Calendar</h1>
                 <p class="text-muted mb-0">View and manage leave plans for all team members</p>
             </div>
-            <div class="col-auto">
+            <div class="col-12 col-md-auto d-flex align-items-center gap-2">
+                <!-- Admin Controls: Work Type Filter -->
+                <div class="d-flex align-items-center me-2" ng-if="isAdmin">
+                    <label class="form-label mb-0 me-2 fw-bold text-dark text-uppercase small">Work Type:</label>
+                    <select class="form-select border-2 fw-bold" style="width: 145px; height: 38px; font-size: 0.9rem;"
+                        ng-model="filters.workType" ng-change="onWorkTypeChange()">
+                        <option value="all">All Employees</option>
+                        <option value="onsite">Onsite</option>
+                        <option value="remote">Remote</option>
+                    </select>
+                </div>
+
+                <!-- My Leave History Button (For ALL Users) -->
                 <button class="btn btn-primary" ng-click="showMyLeaves()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2">
+                        stroke="currentColor" stroke-width="2" class="me-1">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                         <line x1="16" y1="2" x2="16" y2="6"></line>
                         <line x1="8" y1="2" x2="8" y2="6"></line>
                         <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
-                    My Leaves
+                    My Leave History
                 </button>
+
+                <!-- Team Leave Details Button (Admins Only) -->
+                <button class="btn btn-outline-primary ms-2" ng-if="isAdmin" ng-click="showTeamStatsModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" class="me-1">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    Team Leave Details
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Card (Visible only to Non-Admins) -->
+    <div class="row mb-3" ng-if="leaveSummary && !isAdmin">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3">
+                    <div class="row g-3 text-center">
+                        <div class="col-6 col-md-3 border-end">
+                            <div class="text-muted text-uppercase small fw-bold mb-1">Total Allowed</div>
+                            <div class="h2 mb-0 text-dark">{{leaveSummary.totalAllowed}}</div>
+                            <div class="text-muted small">per year</div>
+                        </div>
+                        <div class="col-6 col-md-3 border-end">
+                            <div class="text-muted text-uppercase small fw-bold mb-1">Free Leave</div>
+                            <div class="h2 mb-0"
+                                ng-class="{'text-success': leaveSummary.freeUsed < 10, 'text-warning': leaveSummary.freeUsed >= 10}">
+                                {{leaveSummary.freeUsed}}
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 border-end">
+                            <div class="text-muted text-uppercase small fw-bold mb-1">Paid Leave</div>
+                            <div class="h2 mb-0 text-danger">{{leaveSummary.paidUsed}}</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="text-muted text-uppercase small fw-bold mb-1">Total Leave</div>
+                            <div class="h2 mb-0 text-primary">{{leaveSummary.freeUsed + leaveSummary.paidUsed}}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Calendar Card -->
     <div class="row">
-        <!-- Pending Requests Sidebar (Admin Only) -->
-        <div class="col-lg-3 mb-3" ng-if="isAdmin">
+        <!-- Pending Requests Sidebar (HR Only) -->
+        <div class="col-lg-3 mb-3" ng-if="isHR">
             <div class="card shadow-sm h-100" style="border: none;">
                 <div class="card-header bg-white border-bottom py-3">
                     <h3 class="card-title mb-0 text-primary fw-bold">
@@ -219,8 +275,10 @@
             </div>
         </div>
 
+
+
         <!-- Main Calendar -->
-        <div ng-class="{'col-lg-9': isAdmin, 'col-12': !isAdmin}">
+        <div ng-class="{'col-lg-9': isHR, 'col-12': !isHR}">
             <div class="card shadow-sm" style="border: none;">
                 <div class="card-header bg-white border-bottom py-3">
                     <div class="d-flex justify-content-between align-items-center w-100">
@@ -237,42 +295,27 @@
                             </h3>
                         </div>
 
-                        <div class="d-flex align-items-center gap-4">
-                            <!-- Work Type Filter -->
-                            <div class="d-flex align-items-center" ng-if="isAdmin">
-                                <label class="form-label mb-0 me-2 fw-bold text-dark text-uppercase"
-                                    style="font-size: 1rem;">Work Type:</label>
-                                <select class="form-select border-2 fw-bold"
-                                    style="width: 160px; height: 45px; font-size: 1rem;" ng-model="filters.workType"
-                                    ng-change="onWorkTypeChange()">
-                                    <option value="all">All Employees</option>
-                                    <option value="onsite">Onsite</option>
-                                    <option value="remote">Remote</option>
-                                </select>
+                        <!-- Legend Section -->
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center">
+                                <span class="rounded-circle me-1"
+                                    style="width: 14px; height: 14px; background-color: rgba(13, 110, 253, 0.2); display: inline-block;"></span>
+                                <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Casual</span>
                             </div>
-
-                            <!-- Legend Section -->
-                            <div class="d-flex align-items-center gap-3 border-start ps-4">
-                                <div class="d-flex align-items-center">
-                                    <span class="rounded-circle me-1"
-                                        style="width: 14px; height: 14px; background-color: rgba(13, 110, 253, 0.2); display: inline-block;"></span>
-                                    <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Casual</span>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <span class="rounded-circle me-1"
-                                        style="width: 14px; height: 14px; background-color: rgba(220, 53, 69, 0.2); display: inline-block;"></span>
-                                    <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Sick</span>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <span class="rounded-circle me-1"
-                                        style="width: 14px; height: 14px; background-color: rgba(25, 135, 84, 0.2); display: inline-block;"></span>
-                                    <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Vacation</span>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <span class="rounded-circle me-1"
-                                        style="width: 14px; height: 14px; background-color: rgba(253, 126, 20, 0.2); display: inline-block;"></span>
-                                    <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Personal</span>
-                                </div>
+                            <div class="d-flex align-items-center">
+                                <span class="rounded-circle me-1"
+                                    style="width: 14px; height: 14px; background-color: rgba(220, 53, 69, 0.2); display: inline-block;"></span>
+                                <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Sick</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="rounded-circle me-1"
+                                    style="width: 14px; height: 14px; background-color: rgba(25, 135, 84, 0.2); display: inline-block;"></span>
+                                <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Vacation</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="rounded-circle me-1"
+                                    style="width: 14px; height: 14px; background-color: rgba(253, 126, 20, 0.2); display: inline-block;"></span>
+                                <span class="fw-bold text-secondary" style="font-size: 0.9rem;">Personal</span>
                             </div>
                         </div>
                     </div>
@@ -310,6 +353,27 @@
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Warnings -->
+                    <div class="alert alert-danger" ng-if="willBePaidLeave">
+                        <div class="d-flex">
+                            <div class="me-2">
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                    class="icon icon-tabler icon-tabler-alert-circle" width="20" height="20"
+                                    viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <circle cx="12" cy="12" r="9" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="alert-title text-danger mb-1">Paid Leave Warning</h4>
+                                <div class="text-secondary">{{paidLeaveReason}}</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <form id="leaveForm">
                         <div class="row mb-3">
                             <div class="col-12 mb-3">
@@ -448,6 +512,82 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-light p-2 border-top-0">
+                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Leave Stats Modal -->
+    <div class="modal modal-blur fade" id="teamStatsModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Team Leave Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <!-- Controls Header inside Modal -->
+                <div class="modal-body bg-light border-bottom p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">Showing details for:</div>
+                        <div class="fw-bold text-uppercase">{{filters.workType === 'all' ? 'All Employees' :
+                            filters.workType}}</div>
+                    </div>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+                        <table class="table table-vcenter table-mobile-md card-table table-hover mb-0">
+                            <thead
+                                style="position: sticky; top: 0; background-color: #ffffff; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                <tr>
+                                    <th>User</th>
+                                    <th>Work Type</th>
+                                    <th class="text-center">Free Leaves</th>
+                                    <th class="text-center">Paid Leaves</th>
+                                    <th class="text-center">Total Leaves</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-if="teamStats.length === 0">
+                                    <td colspan="4" class="text-center text-muted p-4">No data available</td>
+                                </tr>
+                                <tr ng-repeat="stat in teamStats">
+                                    <td>
+                                        <div class="d-flex py-1 align-items-center">
+                                            <span class="avatar me-2"
+                                                ng-style="{'background-image': 'url(' + (stat.profileImage || '/images/default_user.png') + ')'}"></span>
+                                            <div class="flex-fill">
+                                                <div class="font-weight-medium text-dark">{{stat.name}}</div>
+                                                <div class="text-muted small">{{stat.email}}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge px-3 py-1 text-white border-0"
+                                            ng-class="{'bg-success': (stat.workType || 'onsite') === 'onsite', 'bg-info': (stat.workType || 'onsite') === 'remote'}">
+                                            {{(stat.workType || 'Onsite') | uppercase}}
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-muted fw-bold">
+                                        {{stat.freeLeave || 0}} <span class="fw-normal small">/ 12</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge px-3 py-1"
+                                            ng-class="{'bg-danger text-white': stat.paidLeave > 0, 'bg-success text-white': stat.paidLeave === 0}"
+                                            style="font-size: 0.85rem;">
+                                            {{stat.paidLeave}}
+                                        </span>
+                                    </td>
+                                    <td class="text-center fs-3 fw-bold text-dark">
+                                        {{stat.totalLeave}}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-2">
                     <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>

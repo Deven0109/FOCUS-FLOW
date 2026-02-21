@@ -32,6 +32,11 @@ const leaveSchema = new mongoose.Schema({
         enum: ['pending', 'approved', 'rejected'],
         default: 'approved'
     },
+    leaveCategory: {
+        type: String,
+        enum: ['Free', 'Paid'],
+        default: 'Free'
+    },
     createdAt: {
         type: Date,
         default: Date.now

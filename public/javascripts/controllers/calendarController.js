@@ -17,6 +17,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     $scope.today = new Date();
     $scope.today.setHours(0, 0, 0, 0); // Normalize to start of day
     $scope.isAdmin = false;
+    $scope.isHR = false;
     $scope.userWorkType = 'onsite';
 
     // Pagination for My Leaves
@@ -25,12 +26,104 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     $scope.myLeavesTotalPages = 1;
     $scope.myLeavesTotalCount = 0;
 
+    // View Management
+    $scope.viewMode = 'all'; // Default
+    $scope.leaveSummary = null;
+    $scope.willBePaidLeave = false;
+    $scope.paidLeaveReason = '';
+
+    // Fetch Leave Summary
+    $scope.loadLeaveSummary = function () {
+        HttpService.get('/api/leaves/summary')
+            .then(function (response) {
+                const data = response.data || response;
+                if (data) $scope.leaveSummary = data;
+            })
+            .catch(err => console.error('Error fetching summary', err));
+    };
+
+    // Team Stats
+    $scope.teamStats = [];
+
+    // Fetch Team Stats
+    $scope.loadTeamStats = function () {
+        if (!$scope.isAdmin) return;
+
+        HttpService.get('/api/leaves/team-stats', { params: { workType: $scope.filters.workType } })
+            .then(function (response) {
+                const data = response.data || response;
+                if (data && Array.isArray(data)) {
+                    $scope.teamStats = data;
+                }
+            })
+            .catch(err => console.error('Error fetching team stats', err));
+    };
+
+    // Show Team Stats Modal
+    $scope.showTeamStatsModal = function () {
+        $scope.loadTeamStats(); // Refresh data
+        try {
+            const modalEl = document.getElementById('teamStatsModal');
+            if (typeof bootstrap !== 'undefined') {
+                new bootstrap.Modal(modalEl).show();
+            } else {
+                $(modalEl).modal('show');
+            }
+        } catch (e) {
+            console.error('Modal error:', e);
+            $('#teamStatsModal').modal('show');
+        }
+    };
+
+    // Set View Mode (Admin Toggle)
+    $scope.setViewMode = function (mode) {
+        $scope.viewMode = mode;
+        if (calendar) calendar.refetchEvents();
+        // Reload stats if switching to team view
+        if (mode === 'all') {
+            $scope.loadTeamStats();
+        }
+    };
+
+    // Work Type change handler for Admin
+    $scope.onWorkTypeChange = function () {
+        if (calendar) calendar.refetchEvents();
+        if ($scope.viewMode === 'all') {
+            $scope.loadTeamStats();
+        }
+    };
+
+    $scope.checkPaidStatus = function () {
+        if (!$scope.leaveSummary || !$scope.leaveForm.fromDate) return;
+
+        $scope.willBePaidLeave = false;
+        $scope.paidLeaveReason = '';
+
+        // Simple client-side check based on summary stats
+        // If yearly limit reached OR monthly limit reached
+        if ($scope.leaveSummary.freeUsed >= $scope.leaveSummary.totalAllowed) {
+            $scope.willBePaidLeave = true;
+            $scope.paidLeaveReason = 'Yearly free leave limit (12) reached.';
+        } else if ($scope.leaveSummary.monthlyUsed >= 1) {
+            // Note: Does this date fall in current month? 
+            // If selecting future date, this check is approximate unless we fetch future month data.
+            // For MVP, user usually applies for current/near future.
+            // Better: Check if fromDate month == current month
+            const selectedDate = new Date($scope.leaveForm.fromDate);
+            const now = new Date();
+            if (selectedDate.getMonth() === now.getMonth() && selectedDate.getFullYear() === now.getFullYear()) {
+                $scope.willBePaidLeave = true;
+                $scope.paidLeaveReason = 'You already used your free leave for this month.';
+            }
+        }
+    };
+
     // --- HR / ADMIN FUNCTIONS ---
     $scope.pendingLeaves = [];
 
     // Fetch Pending Leaves (HR Dashboard)
     $scope.getPendingLeaves = function () {
-        if (!$scope.isAdmin) return;
+        if (!$scope.isHR) return;
 
         HttpService.get('/api/leaves/pending')
             .then(function (response) {
@@ -82,13 +175,36 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
         const user = JSON.parse(localStorage.getItem('user')) || {}; // Fallback if HttpService not ready, but relying on localStorage
         if (user) {
             const role = (user.role || '').toLowerCase();
+
+            // General Admin access (for filters)
             $scope.isAdmin = ['superadmin', 'hr', 'admin', 'human resource'].includes(role);
+
+            // HR Specific access (for Leave Requests module)
+            $scope.isHR = ['hr', 'human resource'].includes(role);
+
             $scope.userWorkType = (user.workType || 'onsite').toLowerCase();
 
             // If not admin, force filters.workType to user's work type
+            // If not admin, force filters.workType to user's work type
             if (!$scope.isAdmin) {
                 $scope.filters.workType = $scope.userWorkType;
+                // Use 'all' view mode to show Team Leaves (backend restricts to same workType)
+                // "onsite user all onsite user leave show within calendar"
+                $scope.viewMode = 'all';
             } else {
+                $scope.viewMode = 'all';
+            }
+
+            // Load Summary
+            $scope.loadLeaveSummary();
+
+            // Load Team Stats for Admins
+            if ($scope.isAdmin) {
+                $scope.loadTeamStats();
+            }
+
+            // Only HR should fetch pending leaves
+            if ($scope.isHR) {
                 $scope.getPendingLeaves();
             }
         }
@@ -144,8 +260,7 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             editable: false,
             height: 'auto',
             dayMaxEvents: false, // Allow stacking of multiple events
-
-            // Date click handler - open leave form
+            // Date Click Handler
             dateClick: function (info) {
                 // Robust check against allMyLeaves using STRING comparison to avoid Timezone issues
                 const clickedDateStr = info.dateStr; // "YYYY-MM-DD"
@@ -163,12 +278,8 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     const startStr = startRaw.toLocaleDateString('en-CA');
                     const endStr = endRaw.toLocaleDateString('en-CA');
 
-                    console.log(`Checking Leave: ${startStr} to ${endStr}`, leave);
-
                     return clickedDateStr >= startStr && clickedDateStr <= endStr;
                 });
-
-                console.log('Is Blocked?', isBlocked);
 
                 if (isBlocked) {
                     toastr.error('You already have a leave request for this date.');
@@ -184,6 +295,9 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                     $scope.leaveForm.reason = '';
                     $scope.leaveForm.leaveType = 'casual';
                     $scope.leaveForm.title = '';
+
+                    // CHECK PAID STATUS
+                    $scope.checkPaidStatus();
 
                     // Try to show modal using Bootstrap 5 JS
                     try {
@@ -205,109 +319,59 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
             // Load events from server
             events: function (info, successCallback, failureCallback) {
                 console.log('--- START events function ---');
-                // Use filters.workType directly. Backend handles 'undefined'/'null' strings now.
-                const url = `/api/leaves?workType=${$scope.filters.workType}`;
+                const url = `/api/leaves?workType=${$scope.filters.workType}&view=${$scope.viewMode}`;
                 console.log('Fetching leaves from:', url);
 
                 HttpService.get(url)
                     .then(function (response) {
                         try {
                             let leaves = [];
-
-                            // Determine if response is the data array directly or wrapped
-                            if (Array.isArray(response)) {
-                                leaves = response;
-                            } else if (response && Array.isArray(response.data)) {
-                                leaves = response.data;
-                            } else {
-                                console.error('Unexpected response format:', response);
-                                failureCallback({ message: 'Invalid data format from server' });
-                                return;
-                            }
+                            if (Array.isArray(response)) leaves = response;
+                            else if (response && Array.isArray(response.data)) leaves = response.data;
 
                             // Grouping Logic
                             const groups = {};
+                            leaves.forEach((leave) => {
+                                if (!leave || !leave.start || !leave.end) return;
+                                const props = leave.extendedProps || {};
+                                const leaveType = (props.leaveType || 'casual').toLowerCase();
+                                const key = `${leave.start}_${leave.end}_${leaveType}`;
 
-                            leaves.forEach((leave, index) => {
-                                try {
-                                    if (!leave || !leave.start || !leave.end) return;
-
-                                    // Create a unique key for the start-end range AND leave type
-                                    const props = leave.extendedProps || {};
-                                    const leaveType = (props.leaveType || 'casual').toLowerCase();
-                                    const key = `${leave.start}_${leave.end}_${leaveType}`;
-
-                                    if (!groups[key]) {
-                                        groups[key] = {
-                                            start: leave.start,
-                                            end: leave.end,
-                                            type: leaveType,
-                                            color: leave.backgroundColor || '#3b82f6',
-                                            users: []
-                                        };
-                                    }
-
-                                    // Add user details to the group
-                                    groups[key].users.push({
-                                        name: props.userName || 'Unknown User',
-                                        email: props.userEmail || '',
-                                        workType: props.userWorkType || 'onsite',
-                                        type: props.leaveType || 'LEAVE',
-                                        color: leave.backgroundColor || '#3b82f6',
-                                        title: props.title || 'No Title',
-                                        reason: props.reason || '',
-                                        status: props.status || 'unknown',
-                                        dateRange: props.displayDateRange || 'Date not available'
-                                    });
-
-                                } catch (loopErr) {
-                                    console.error('Error in leaves loop for index ' + index + ':', loopErr);
+                                if (!groups[key]) {
+                                    groups[key] = {
+                                        start: leave.start, end: leave.end, type: leaveType, color: leave.backgroundColor, users: []
+                                    };
                                 }
+                                groups[key].users.push({
+                                    name: props.userName, email: props.userEmail, workType: props.userWorkType,
+                                    type: props.leaveType, color: leave.backgroundColor, title: props.title,
+                                    reason: props.reason, status: props.status, dateRange: props.displayDateRange,
+                                    duration: props.duration
+                                });
                             });
 
-                            // Convert groups to FullCalendar events
                             const calendarEvents = Object.values(groups).map(group => {
-                                // Determine the color of the group
-                                // If all users have the same color, use it. Otherwise use the default blue.
                                 const distinctColors = [...new Set(group.users.map(u => u.color))];
                                 const groupColor = distinctColors.length === 1 ? distinctColors[0] : '#3b82f6';
-
                                 return {
                                     title: `View (${group.users.length})`,
-                                    start: group.start,
-                                    end: group.end,
-                                    allDay: true,
-                                    backgroundColor: groupColor,
-                                    borderColor: groupColor,
-                                    textColor: '#ffffff',
-                                    extendedProps: {
-                                        count: group.users.length,
-                                        users: group.users,
-                                        isAggregated: true
-                                    }
+                                    start: group.start, end: group.end, allDay: true,
+                                    backgroundColor: groupColor, borderColor: groupColor, textColor: '#ffffff',
+                                    extendedProps: { count: group.users.length, users: group.users }
                                 };
                             });
-
-                            console.log('Final Grouped Calendar Events:', calendarEvents);
                             successCallback(calendarEvents);
-
-                        } catch (innerErr) {
-                            console.error('Error inside .then callback:', innerErr);
-                            failureCallback({ message: innerErr.message });
-                        }
+                        } catch (e) { failureCallback({ message: e.message }); }
                     })
-                    .catch(function (error) {
-                        console.error('HttpService Promise Rejected:', error);
-                        failureCallback({ message: error ? error.message : 'Unknown error' });
-                    });
+                    .catch(e => failureCallback({ message: e.message }));
             },
 
+            // Render Event Content
             eventContent: function (arg) {
                 const props = arg.event.extendedProps;
                 const count = props.count || 0;
                 const users = props.users || [];
 
-                // Container
                 const container = document.createElement('div');
                 container.className = 'd-flex align-items-center w-100 h-100 px-1 py-1 overflow-hidden';
                 container.style.cursor = 'pointer';
@@ -315,7 +379,6 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 container.style.borderRadius = '4px';
                 container.style.minHeight = '34px';
 
-                // Left Badge "View (N)"
                 const badge = document.createElement('div');
                 badge.className = 'd-flex align-items-center justify-content-center text-white fw-bold px-1 rounded-1 me-1';
                 badge.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
@@ -324,22 +387,18 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 badge.style.minWidth = 'fit-content';
                 badge.innerText = `View(${count})`;
 
-                // Right Text Container (Vertical Stack)
                 const textContainer = document.createElement('div');
                 textContainer.className = 'd-flex flex-column justify-content-center overflow-hidden flex-grow-1';
                 textContainer.style.lineHeight = '1.1';
 
-                // Aggregate Names and Reasons
                 const names = users.map(u => (u.name || 'User').split(' ')[0]).join(', ');
                 const reasons = users.map(u => u.reason || u.title || 'Leave').join(', ');
 
-                // Name Line
                 const nameLine = document.createElement('div');
                 nameLine.className = 'text-white fw-bold text-truncate';
                 nameLine.style.fontSize = '0.7rem';
                 nameLine.innerText = names;
 
-                // Reason Line
                 const reasonLine = document.createElement('div');
                 reasonLine.className = 'text-white text-truncate';
                 reasonLine.style.fontSize = '0.65rem';
@@ -348,101 +407,71 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
 
                 textContainer.appendChild(nameLine);
                 textContainer.appendChild(reasonLine);
-
                 container.appendChild(badge);
                 container.appendChild(textContainer);
 
                 return { domNodes: [container] };
             },
 
-            // Custom rendering to support Tooltips
+            // Tooltips
             eventDidMount: function (info) {
                 const props = info.event.extendedProps;
                 const userNames = props.users.map(u => u.name).join(', ');
-                const tooltipContent = `
-                    <div class="text-start">
-                        <strong>${props.count} Users on Leave</strong><br>
-                        ${userNames}
-                    </div>
-                `;
-
+                const tooltipContent = `<div class="text-start"><strong>${props.count} Users on Leave</strong><br>${userNames}</div>`;
                 try {
                     if (typeof bootstrap !== 'undefined') {
                         new bootstrap.Tooltip(info.el, {
-                            title: tooltipContent,
-                            html: true,
-                            placement: 'top',
-                            trigger: 'hover',
-                            container: 'body'
+                            title: tooltipContent, html: true, placement: 'top', trigger: 'hover', container: 'body'
                         });
                     } else {
                         info.el.setAttribute('title', `${props.count} Users`);
                     }
-                } catch (e) {
-                    console.warn('Bootstrap tooltip error:', e);
-                }
+                } catch (e) { console.warn('Bootstrap tooltip error:', e); }
             },
 
-            // Event click - show details for that specific date range
+            // Event Click (View Details)
             eventClick: function (info) {
                 const props = info.event.extendedProps;
-
-                // Populate Modal Header with Range
                 const dateEl = document.getElementById('viewLeaveDate');
                 if (dateEl && props.users.length > 0) {
-                    if (props.users.length === 1 && props.users[0].title) {
-                        dateEl.textContent = props.users[0].title;
-                    } else {
-                        dateEl.textContent = props.users[0].dateRange;
-                    }
+                    dateEl.textContent = (props.users.length === 1 && props.users[0].title) ? props.users[0].title : props.users[0].dateRange;
                 }
-
                 const listContainer = document.getElementById('dayLeavesList');
                 if (listContainer) {
                     listContainer.innerHTML = '';
-
                     props.users.forEach(user => {
                         const itemHTML = `
                             <div class="list-group-item border-0 border-bottom py-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div>
-                                        <div class="fw-bold text-dark mb-1" style="font-size: 1.25rem;">
+                                        <div class="fw-bold text-dark mb-1 d-flex align-items-center" style="font-size: 1.25rem;">
                                             ${user.name}
-                                            <span class="badge ${(user.workType || 'onsite').toLowerCase() === 'onsite' ? 'bg-success' : 'bg-info'} text-white ms-2" 
-                                                  style="font-size: 0.8rem; padding: 5px 10px; vertical-align: middle; letter-spacing: 0.5px;">
-                                                ${(user.workType || 'ONSITE').toUpperCase()}
-                                            </span>
+                                            <span class="badge ${(user.workType || 'onsite').toLowerCase() === 'onsite' ? 'bg-success' : 'bg-info'} text-white ms-2" style="font-size: 0.8rem; padding: 5px 10px; vertical-align: middle; letter-spacing: 0.5px;">${(user.workType || 'ONSITE').toUpperCase()}</span>
                                         </div>
                                         <div class="text-secondary mb-2" style="font-size: 1rem;">${user.email}</div>
-                                        <div class="fw-bold" style="color: #0d6efd !important; font-size: 1.1rem;">Date : ${user.dateRange.replace(' - ', ' To ')}</div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="fw-bold" style="color: #0d6efd !important; font-size: 1.1rem;">Date: ${user.dateRange.replace(' - ', ' To ')}</div>
+                                            <span class="badge bg-light text-dark border">Duration: ${user.duration || 1} Days</span>
+                                        </div>
                                     </div>
-                                    <span class="badge text-white text-uppercase" 
-                                          style="font-size: 1rem; padding: 10px 15px; letter-spacing: 0.5px; background-color: ${user.color} !important;">
-                                        ${(user.type || 'LEAVE').toUpperCase()}
-                                    </span>
+                                    <div class="text-end">
+                                        <span class="badge text-white text-uppercase" style="font-size: 1rem; padding: 10px 15px; letter-spacing: 0.5px; background-color: ${user.color} !important;">${(user.type || 'LEAVE').toUpperCase()}</span>
+                                        <div class="mt-2 text-uppercase fw-bold small ${user.status === 'approved' ? 'text-success' : 'text-warning'}">
+                                            Status: ${user.status || 'Approved'}
+                                        </div>
+                                    </div>
                                 </div>
-                                
                                 <div class="mt-3">
-                                    <div class="p-3 bg-light rounded text-dark border">
-                                        <span class="fw-bold text-secondary text-uppercase me-2" style="font-size: 0.9rem;">Reason:</span>
-                                        <span class="text-dark" style="font-size: 1rem;">${user.reason || 'No reason provided.'}</span>
-                                    </div>
+                                    <div class="p-3 bg-light rounded text-dark border"><span class="fw-bold text-secondary text-uppercase me-2" style="font-size: 0.9rem;">Reason:</span><span class="text-dark" style="font-size: 1rem;">${user.reason || 'No reason provided.'}</span></div>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                         listContainer.insertAdjacentHTML('beforeend', itemHTML);
                     });
-
                     try {
                         const modalEl = document.getElementById('viewLeaveModal');
-                        if (typeof bootstrap !== 'undefined') {
-                            new bootstrap.Modal(modalEl).show();
-                        } else {
-                            $(modalEl).modal('show');
-                        }
-                    } catch (e) {
-                        console.error('Modal error:', e);
-                    }
+                        if (typeof bootstrap !== 'undefined') new bootstrap.Modal(modalEl).show();
+                        else $(modalEl).modal('show');
+                    } catch (e) { console.error('Modal error:', e); }
                 }
             }
         });
@@ -454,17 +483,11 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
     }, 100);
 
     // Handle duration change
-    $scope.onDurationChange = function () {
-        if ($scope.leaveForm.duration === 'single') {
-            $scope.leaveForm.toDate = $scope.leaveForm.fromDate;
-        }
-    };
-
-    // Handle from date change
     $scope.onFromDateChange = function () {
         if ($scope.leaveForm.duration === 'single') {
             $scope.leaveForm.toDate = $scope.leaveForm.fromDate;
         }
+        $scope.checkPaidStatus();
     };
 
     // Submit leave request
@@ -503,7 +526,11 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
                 const data = response.data || response;
 
                 if (data && data.leave) {
-                    toastr.success('Leave request submitted successfully. Waiting for approval.');
+                    if (data.autoApproved) {
+                        toastr.success('Leave approved and added to calendar!');
+                    } else {
+                        toastr.success('Leave request submitted successfully. Waiting for approval.');
+                    }
 
                     // Reload calendar to refresh aggregated events
                     if (calendar) {
@@ -592,13 +619,22 @@ app.controller('CalendarController', function ($scope, HttpService, $timeout) {
         // Load first page
         $scope.loadMyLeavesPage(1);
 
-        const modalEl = document.getElementById('myLeavesModal');
-        if (typeof bootstrap !== 'undefined') {
-            new bootstrap.Modal(modalEl).show();
-        } else {
-            $(modalEl).modal('show');
+        // Open Modal
+        try {
+            const modalEl = document.getElementById('myLeavesModal');
+            if (typeof bootstrap !== 'undefined') {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            } else {
+                $(modalEl).modal('show');
+            }
+        } catch (e) {
+            console.error('Modal error:', e);
+            $('#myLeavesModal').modal('show');
         }
     };
+
+
 
     $scope.prevMyLeavesPage = function () {
         if ($scope.myLeavesPage > 1) {
